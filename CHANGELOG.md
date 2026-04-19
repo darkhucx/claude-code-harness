@@ -34,13 +34,13 @@ Change history for claude-code-harness.
 
 **今後**: `collectPlansState` に閾値判定を追加し、`WIP ≥ wip_threshold`（既定 5）または `stale_for ≥ stale_hours`（既定 24）のいずれか 1 つが真になると `⚠️ plans drift: WIP={n}, stale_for={hours}h` を出力します。両閾値とも `.claude-code-harness.config.yaml` の `monitor.plans_drift.wip_threshold` / `monitor.plans_drift.stale_hours` で上書きできます。
 
-#### 4. 既知の non-blocker（Reviewer APPROVE 時の minor findings）
+#### 4. Reviewer minor 3 件の follow-up（Phase 48.2.1）
 
-Phase 48 の Reviewer 判定は `APPROVE` (critical=0 / major=0 / minor=3) でしたが、以下 3 件の follow-up は次の機会に織り込みます。ユーザー影響はありません。
+Phase 48 の Reviewer 判定は `APPROVE` (critical=0 / major=0 / minor=3) でしたが、以下 3 件を本セッション内で即クローズしました。
 
-- `go/internal/session/monitor.go:751-754` — `checkPlansDrift` の WIP-only ブランチで `stale_for=0h` が sprintf される。両ブランチで同一書式に統一できる余地
-- `go/internal/session/monitor.go:691,763` — config パス読み取りに `filepath.Clean` / symlink チェック未実装（projectRoot は内部由来のため minor）
-- `go/internal/session/monitor_test.go` — DoD で reviewer drift も同ロジックと明記されているが `TestMonitorHandler_ReviewerDrift_*` テスト欠落（実装は `monitor.go:641-675` に存在）
+- `go/internal/session/monitor.go:747-752` — `checkPlansDrift` の `if staleHit` 分岐で同一 `fmt.Sprintf` を 2 箇所で呼ぶ dead-code を削除し、単一 return に統合
+- `go/internal/session/monitor.go:691,763` — `readAdvisorTTL` / `readPlansDriftConfig` の `configPath` に `filepath.Clean` を適用してパス構築の定石を揃えた（projectRoot は内部由来のため symlink チェックは過剰防御として省略）
+- `go/internal/session/monitor_test.go` — `TestMonitorHandler_ReviewerDrift_Hit` / `_Miss` / `_ConfigOverride` の 3 ケースを追加。reviewer drift が advisor と同 TTL (`orchestration.advisor_ttl_seconds`) 配下で動くこと・`review-result.v1` 到着後は検出されないこと・config override が reviewer 側でも効くことを固定
 
 ---
 

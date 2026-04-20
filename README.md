@@ -390,7 +390,9 @@ bash scripts/gemini-companion.sh status <job-id>
 bash scripts/gemini-companion.sh result <job-id> --json
 ```
 
-> **Setup**: Install [Gemini CLI](https://github.com/google-gemini/gemini-cli) (`npm install -g @google/gemini-cli`) and authenticate with `gemini auth` (OAuth, no API key needed; or set `GEMINI_API_KEY` if you prefer). Then install the plugin:
+**Requires**: Gemini CLI **>= 0.38.1** (earlier versions — including 0.37.x — have an ACP broker compatibility issue that causes `--gemini` task delegations to stall silently or fail with `[object Object]`).
+
+> **Setup**: Install [Gemini CLI](https://github.com/google-gemini/gemini-cli) (`npm install -g @google/gemini-cli@latest`) and authenticate with `gemini auth` (OAuth, no API key needed; or set `GEMINI_API_KEY` if you prefer). Verify with `gemini --version` before using `--gemini`. Then install the plugin:
 > ```
 > /plugin marketplace add sakibsadmanshajib/gemini-plugin-cc
 > /plugin install gemini@google-gemini

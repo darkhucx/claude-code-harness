@@ -6,6 +6,75 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### 追加: Gemini CLI 委託エンジン (`--gemini`)
+
+**`/work --gemini` と `/harness-review --gemini` を新規サポート。Codex と対等な 2 つ目の LLM エンジンとして Gemini CLI を選択可能にし、ACP (Agent Client Protocol) 経由でジョブ管理・thread resume・構造化出力を利用できるようにした。**
+
+---
+
+#### 1. `/work --gemini` で Gemini CLI に実装を委託
+
+**今まで**: 外部 LLM に実装を委託できる選択肢は Codex CLI (`--codex`) だけでした。OAuth で Google アカウントにログインして使える Gemini CLI を活用したいケース (Gemini 3.x の 1M トークン文脈、あるいは Google AI Studio の無料枠) があっても、Harness 側の入口がなく raw `gemini` コマンドを手動で呼ぶしかありませんでした。
+
+**今後**: `/work --gemini "タスク内容"` で `sakibsadmanshajib/gemini-plugin-cc` の companion 経由で Gemini CLI にタスクを委託できます。Codex モードと 1:1 対応した操作体系を提供:
+
+```bash
+bash scripts/gemini-companion.sh task --write "バグを修正して"
+bash scripts/gemini-companion.sh task --resume-last --write "続きをやって"
+bash scripts/gemini-companion.sh task --write --model pro "タスク内容"
+```
+
+`--codex` との同時指定は不可。`--gemini --breezing` のようにチーム実行との組み合わせはサポート。
+
+#### 2. `/harness-review --gemini` で Gemini 並行レビュー (`adversarial-review --background` 経路)
+
+**今まで**: `--dual` フラグで Claude + Codex の 2 エンジン並行レビューができましたが、Gemini を並行レビュアーに使う経路はありませんでした。
+
+**今後**: `/harness-review --gemini` で Claude + Gemini の並行レビュー。実装経路は `adversarial-review --background` + poll status + result --json + `gemini-review-extract.sh` で fence 剥がし + `write-review-result.sh` で verdict 正規化、という 5 段パイプライン。前台 `review` は ACP 初期化タイミング問題で失敗するため `--background` が唯一の安定経路。
+
+#### 3. Thinking レベル自動マッピング
+
+**今まで**: Codex の effort (`none | minimal | low | medium | high | xhigh`) は Harness の `calculate-effort.sh` で自動計算されていました。Gemini は別の "thinking levels" (`off | low | medium | high`) を使うため、そのままでは互換性がありませんでした。
+
+**今後**: `gemini-companion.sh` が effort を thinking level に自動マップ:
+
+| Codex `--effort` | Gemini `--thinking` |
+|---|---|
+| `none` / `minimal` | `off` |
+| `low` | `low` |
+| `medium` | `medium` |
+| `high` / `xhigh` | `high` (clamp) |
+
+既存の `calculate-effort.sh` の出力がそのまま再利用され、呼び出し側は effort を意識せずに済みます。
+
+#### 4. Gemini review 用の schema 正規化ヘルパー `scripts/gemini-review-extract.sh`
+
+**今まで**: `gemini-plugin-cc` の background worker は schema 出力 (`review-output.schema.json` 準拠) を markdown code fence で包んで `rawOutput` に詰めて返すため、`write-review-result.sh` が verdict フィールドを直接見つけられませんでした。また Gemini の schema 準拠率にばらつきがあり、`severity` の欠落や `title` / `body` が `finding` フィールドに混じるケースがありました。
+
+**今後**: `scripts/gemini-review-extract.sh` を新規追加し、3 段パイプラインを提供:
+
+```bash
+bash scripts/gemini-companion.sh result "$JOB_ID" --json > /tmp/raw.json
+bash scripts/gemini-review-extract.sh /tmp/raw.json > /tmp/clean.json
+bash scripts/write-review-result.sh /tmp/clean.json "$COMMIT"
+```
+
+extract の責務:
+- `rawOutput` 内の ```json fence を剥がす (awk ベース、fence なしの plain JSON にも対応)
+- `severity` 欠落時に `medium` で埋める (安全側、followups に分類)
+- `finding` / `body` から `title` を生成するフォールバック
+- 既に schema 形式の入力はそのまま pass-through
+
+これで Codex の `review` と Gemini の `adversarial-review` の両方が同じ `normalize_verdict` 経路 (`approve → APPROVE`、`needs-attention → REQUEST_CHANGES`) を通ります。
+
+#### 5. MCP 経路の強制統一
+
+**今まで**: 新しい LLM CLI を追加した際に `mcp__<server>__*` を野放しにすると、agent が MCP 経由で raw 呼び出しをするリスクがありました。
+
+**今後**: `.claude-plugin/settings.json` の deny に `mcp__gemini__*` を追加予定(自己書き換え防止ルールによりユーザー手動追加が必要)。Codex と同様に plugin 経路 (`gemini-companion.sh`) への統一を保証します。
+
+---
+
 ### 修正: `codex-companion.sh` 引数パース・STDIN 処理の脆弱性 (3 件)
 
 **Gemini の adversarial review で検出された `codex-companion.sh` の 3 件の潜在不具合を修正。影響は `/work --codex` のエッジケース (multimodal データ、inline value フラグ、headless CI 環境) での無声データ破損 + 無限 hang。**

@@ -109,6 +109,7 @@ Details: [docs/CLAUDE-commands.md](docs/CLAUDE-commands.md)
 | `git push origin main/master` | R12 deny | protected branch 保護 |
 | `git reset --hard` | ask + R11 deny | 不可逆操作の防止 |
 | `mcp__codex__*` | deny | Codex MCP 直接使用の防止 |
+| `mcp__gemini__*` | deny | Gemini MCP 直接使用の防止 |
 
 変更が必要な場合はユーザーに手動操作を依頼すること。
 
@@ -117,8 +118,8 @@ Details: [docs/CLAUDE-commands.md](docs/CLAUDE-commands.md)
 | Command | Purpose |
 |---------|---------|
 | `/plan-with-agent` | Add improvement tasks to Plans.md |
-| `/work` | Implement tasks (auto-scope detection, --codex support) |
-| `/breezing` | Full team parallel run with Agent Teams (--codex support) |
+| `/work` | Implement tasks (auto-scope detection, --codex / --gemini support) |
+| `/breezing` | Full team parallel run with Agent Teams (--codex / --gemini support) |
 | `/harness-review` | Review changes |
 | `/validate` | Validate plugin |
 | `/remember` | Record learnings |

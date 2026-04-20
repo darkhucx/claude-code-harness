@@ -6,6 +6,35 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### 修正: `codex-companion.sh` 引数パース・STDIN 処理の脆弱性 (3 件)
+
+**Gemini の adversarial review で検出された `codex-companion.sh` の 3 件の潜在不具合を修正。影響は `/work --codex` のエッジケース (multimodal データ、inline value フラグ、headless CI 環境) での無声データ破損 + 無限 hang。**
+
+---
+
+#### 1. STDIN を bash 変数に格納すると null byte が失われる
+
+**今まで**: `STDIN_CONTENT=$(cat)` で stdin を bash 変数に格納していました。bash 変数は null byte (`\0`) を自動的にドロップするため、**画像などの multimodal データをパイプで流すと無声破損**していました。
+
+**今後**: `mktemp` で tempfile に保存し、`trap cleanup EXIT` でリーク防止。byte 完全性を保つ形で Codex companion に渡します。
+
+#### 2. `--model=pro` のような inline value フラグが次の引数を吞み込む + 未知の短フラグが TASK_DESC を上書き
+
+**今まで**: 引数パースの `case` 文で `--*)` catch-all が `--foo=bar` にも一致し、`EXPECT_VALUE` を設定して**次の引数 (TASK_DESC) を値として吞み込む**バグがありました。さらに未知の短フラグ (`-v`、`-q` 等) は `--*)` をバイパスして `*)` に落ち、**TASK_DESC を完全に上書き**していました。TASK_DESC が空になった時 stdin 待ちで `cat` が停止し、**headless CI 環境では無限 hang** するリスクがありました。
+
+**今後**: `case` 文に以下 2 つの分岐を追加:
+
+- `--*=*)` (inline value は自己完結、次引数を消費しない)
+- `-*)` (未知の短フラグは無視、TASK_DESC を上書きしない)
+
+#### 3. プロンプト内容が `-n` / `-e` / `-E` で始まると `echo` が flag として解釈
+
+**今まで**: `echo "$STDIN_CONTENT" | bash ...` は、内容が `-n` / `-e` / `-E` で始まる場合に echo builtin が flag として解釈し、**内容の冒頭が消失**する可能性がありました。
+
+**今後**: tempfile 経由のリダイレクト (`< "$TMP_STDIN"`) に変更し、そもそも echo を経由しない形に。
+
+---
+
 ## [4.3.3] - 2026-04-20
 
 ### テーマ: harness-mem 未使用ユーザーへの誤警告 regression を hotfix

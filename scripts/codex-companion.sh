@@ -153,6 +153,9 @@ if [ "$SUBCOMMAND" = "task" ]; then
         continue
       fi
       case "$arg" in
+        --*=*)
+          # インライン値 (--foo=bar) — 自己完結、次引数を消費しない
+          ;;
         --write|--resume-last|--json|--full-auto|--ephemeral|--oss|--skip-git-repo-check|--dangerously-bypass-approvals-and-sandbox|--background|--resume|--fresh)
           # 値を取らない boolean フラグ → スキップするだけ
           ;;
@@ -161,8 +164,12 @@ if [ "$SUBCOMMAND" = "task" ]; then
           EXPECT_VALUE="$arg"
           ;;
         --*)
-          # 未知のフラグ → 安全側で値付きとして扱う（誤って次引数を TASK_DESC にしない）
+          # 未知の long フラグ → 安全側で値付きとして扱う（誤って次引数を TASK_DESC にしない）
           EXPECT_VALUE="$arg"
+          ;;
+        -*)
+          # 未知の短フラグ → TASK_DESC を上書きしないよう無視する
+          # 既知の短フラグ (-m, -i, -c, -C, -o) は上の case で先に捕捉済み
           ;;
         *)
           # 非フラグ引数 = タスク説明
@@ -172,20 +179,29 @@ if [ "$SUBCOMMAND" = "task" ]; then
     done
 
     # effort を計算
+    # stdin がある場合はバイト列を保存するため tempfile を使う
+    # (bash 変数に格納すると null byte が失われ、multimodal データが壊れる)
     COMPUTED_EFFORT=""
+    TMP_STDIN=""
+    cleanup_tmp_stdin() {
+      [ -n "${TMP_STDIN:-}" ] && rm -f "$TMP_STDIN"
+    }
+    trap cleanup_tmp_stdin EXIT
     if [ -f "$EFFORT_SCRIPT" ]; then
       if [ -n "$TASK_DESC" ]; then
         COMPUTED_EFFORT=$(bash "$EFFORT_SCRIPT" "$TASK_DESC" 2>/dev/null || true)
       elif [ ! -t 0 ]; then
-        # stdin が利用可能（パイプ）: 内容を読み取って effort を計算
-        STDIN_CONTENT=$(cat)
-        if [ -n "$STDIN_CONTENT" ]; then
-          COMPUTED_EFFORT=$(echo "$STDIN_CONTENT" | bash "$EFFORT_SCRIPT" 2>/dev/null || true)
-          # stdin を再セットアップ（here-string 経由で companion に渡す）
+        # stdin が利用可能（パイプ）: 内容を tempfile に保存して effort を計算
+        TMP_STDIN=$(mktemp "${TMPDIR:-/tmp}/codex-stdin-XXXXXX")
+        cat > "$TMP_STDIN"
+        if [ -s "$TMP_STDIN" ]; then
+          COMPUTED_EFFORT=$(bash "$EFFORT_SCRIPT" < "$TMP_STDIN" 2>/dev/null || true)
           if [ "${STRUCTURED_TASK_EXEC}" -eq 1 ]; then
-            run_structured_task_exec "$@" --effort "${COMPUTED_EFFORT:-medium}" <<< "$STDIN_CONTENT"
+            run_structured_task_exec "$@" --effort "${COMPUTED_EFFORT:-medium}" < "$TMP_STDIN"
+            exit $?
           else
-            exec node "$COMPANION" "$@" --effort "${COMPUTED_EFFORT:-medium}" <<< "$STDIN_CONTENT"
+            node "$COMPANION" "$@" --effort "${COMPUTED_EFFORT:-medium}" < "$TMP_STDIN"
+            exit $?
           fi
         fi
         # stdin が空の場合（</dev/null 等）はフォールスルーして通常フローへ

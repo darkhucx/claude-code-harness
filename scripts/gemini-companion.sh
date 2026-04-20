@@ -147,6 +147,11 @@ if [ "$SUBCOMMAND" = "task" ]; then
     fi
 
     COMPUTED_THINKING="$(normalize_thinking_level "$COMPUTED_EFFORT")"
+    # exec は現シェルを置き換えるため EXIT trap が発火しない。
+    # TMP_STDIN が途中まで作成されていた場合に備えて明示的にクリーンアップしてから exec に入る。
+    cleanup_tmp_stdin
+    TMP_STDIN=""
+    trap - EXIT
     exec node "$COMPANION" "$@" --thinking "$COMPUTED_THINKING"
   fi
 fi

@@ -75,6 +75,26 @@ extract の責務:
 
 ---
 
+### 修正: companion の `exec` と extract の fence 正規表現で 2 件の edge case (Gemini dual review 検出)
+
+**Gemini の adversarial review (上記 feat を対象) が 2 件の追加不具合を検出したため、当 `[Unreleased]` に収録。**
+
+#### 1. `exec` で EXIT trap が発火せず tempfile が /tmp に永続リーク
+
+**今まで**: `codex-companion.sh` の `run_structured_task_exec` は内部で `exec codex exec "${passthrough[@]}"` を呼ぶため、現シェルプロセスが置き換わり、**`trap cleanup_tmp_stdin EXIT` が発火しません**。結果として TMP_STDIN が `/tmp/codex-stdin-XXXXXX` に残り続ける (sensitive prompt が漏洩するセキュリティリスク)。同じ問題が `gemini-companion.sh` の fallthrough 経路の `exec node "$COMPANION"` にも存在。
+
+**今後**: 
+- `codex-companion.sh`: `run_structured_task_exec` 呼び出し前に FD を開いて `rm` してから `<&3` でリダイレクト (Unix 意味論で unlinked file はまだ FD 経由で読める)。trap は明示 disable
+- `gemini-companion.sh`: fallthrough の `exec` 前に `cleanup_tmp_stdin` を明示呼び出し → trap 解除 → exec
+
+#### 2. `gemini-review-extract.sh` の awk fence regex が CR と末尾空白で破綻
+
+**今まで**: `^```json$` の厳格マッチ。Gemini が時々出す `\r` (Windows 改行) や末尾空白があると fence が剥がれず、生 markdown を jq に渡して pipeline 全体が失敗。
+
+**今後**: `tr -d '\r'` で事前に CR を除去 + awk 側を `^```json[[:space:]]*$` に緩和。
+
+---
+
 ### 修正: `codex-companion.sh` 引数パース・STDIN 処理の脆弱性 (3 件)
 
 **Gemini の adversarial review で検出された `codex-companion.sh` の 3 件の潜在不具合を修正。影響は `/work --codex` のエッジケース (multimodal データ、inline value フラグ、headless CI 環境) での無声データ破損 + 無限 hang。**

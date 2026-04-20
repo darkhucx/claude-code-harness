@@ -37,10 +37,12 @@ if [ -z "$RAW" ]; then
 fi
 
 # rawOutput 内の ```json ... ``` fence を剥ぐ
-# fence なしで plain JSON が入っているケースにも対応
-EXTRACTED=$(printf '%s' "$RAW" | awk '
-  /^```json$/ { in_block=1; next }
-  /^```$/ && in_block { in_block=0; exit }
+# Gemini は時々 CR (`\r`) や末尾空白を付けるため、事前に tr で CR を落とし
+# awk 側では `[[:space:]]*` で末尾空白を許容する (fence なしで plain JSON が
+# 入っているケースにも対応)。
+EXTRACTED=$(printf '%s' "$RAW" | tr -d '\r' | awk '
+  /^```json[[:space:]]*$/ { in_block=1; next }
+  /^```[[:space:]]*$/ && in_block { in_block=0; exit }
   in_block { print }
 ')
 

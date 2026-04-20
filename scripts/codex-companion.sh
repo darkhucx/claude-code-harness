@@ -196,8 +196,16 @@ if [ "$SUBCOMMAND" = "task" ]; then
         cat > "$TMP_STDIN"
         if [ -s "$TMP_STDIN" ]; then
           COMPUTED_EFFORT=$(bash "$EFFORT_SCRIPT" < "$TMP_STDIN" 2>/dev/null || true)
+          # 注意: run_structured_task_exec は内部で `exec codex exec` を使い
+          # 現シェルプロセスを置き換えるため EXIT trap が発火しない。
+          # そのため exec 経由に入る前に tempfile を手動で削除する必要がある。
+          # FD 0 を先に開いてから rm すれば Unix 意味論で消しても読める (unlinked file)。
           if [ "${STRUCTURED_TASK_EXEC}" -eq 1 ]; then
-            run_structured_task_exec "$@" --effort "${COMPUTED_EFFORT:-medium}" < "$TMP_STDIN"
+            exec 3< "$TMP_STDIN"
+            rm -f "$TMP_STDIN"
+            TMP_STDIN=""
+            trap - EXIT
+            run_structured_task_exec "$@" --effort "${COMPUTED_EFFORT:-medium}" <&3
             exit $?
           else
             node "$COMPANION" "$@" --effort "${COMPUTED_EFFORT:-medium}" < "$TMP_STDIN"

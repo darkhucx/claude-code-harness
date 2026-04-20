@@ -13,6 +13,7 @@
       "Bash(mongod:*)",
       "Bash(mongo:*)",
       "mcp__codex__*",
+      "mcp__gemini__*",
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./secrets/**)",

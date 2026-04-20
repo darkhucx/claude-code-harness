@@ -364,6 +364,43 @@ Delegate implementation tasks to OpenAI Codex in parallel. Codex implements, sel
 </details>
 
 <details>
+<summary><strong>Gemini Engine</strong> <em>(fork addition)</em></summary>
+
+Delegate implementation and review tasks to Google's Gemini CLI. Second LLM engine alongside Codex — uses OAuth (Google personal account) so no API key juggling required. Backed by [sakibsadmanshajib/gemini-plugin-cc](https://github.com/sakibsadmanshajib/gemini-plugin-cc), a port of codex-plugin-cc that shares the same `review-output.schema.json`.
+
+```bash
+/harness-work --gemini implement these 5 API endpoints
+/harness-review --gemini  # Claude + Gemini parallel review
+```
+
+**What you get**:
+
+- **Same operational surface as `--codex`** — job management, thread resume, structured output, all via ACP (Agent Client Protocol)
+- **Effort auto-mapping** — Harness's `calculate-effort.sh` output (`none|minimal|low|medium|high|xhigh`) is automatically mapped to Gemini's thinking levels (`off|low|medium|high`)
+- **Structured verdict** — Review path goes through `adversarial-review --background` + `scripts/gemini-review-extract.sh` → same `normalize_verdict` flow as Codex (`approve → APPROVE`, `needs-attention → REQUEST_CHANGES`)
+- **Model aliases** — `pro` / `flash` / `flash-lite` / `auto-gemini-3` (default) / `auto-gemini-2.5`
+- **`--codex` / `--gemini` are mutually exclusive**, but `--gemini --breezing` (team run) is supported
+
+**Direct companion usage** (without the slash command):
+
+```bash
+bash scripts/gemini-companion.sh task --write "fix the flaky integration test"
+bash scripts/gemini-companion.sh adversarial-review --base HEAD~3 --background
+bash scripts/gemini-companion.sh status <job-id>
+bash scripts/gemini-companion.sh result <job-id> --json
+```
+
+> **Setup**: Install [Gemini CLI](https://github.com/google-gemini/gemini-cli) (`npm install -g @google/gemini-cli`) and authenticate with `gemini auth` (OAuth, no API key needed; or set `GEMINI_API_KEY` if you prefer). Then install the plugin:
+> ```
+> /plugin marketplace add sakibsadmanshajib/gemini-plugin-cc
+> /plugin install gemini@google-gemini
+> /gemini:setup
+> ```
+> The `mcp__gemini__*` deny entry in `.claude-plugin/settings.json` keeps invocations routed through the companion script (same pattern as Codex).
+
+</details>
+
+<details>
 <summary><strong>2-Agent Mode (with Cursor)</strong></summary>
 
 Use Cursor as PM, Claude Code as implementer. Plans.md syncs between both.

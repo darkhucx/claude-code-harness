@@ -26,6 +26,14 @@
 
 ---
 
+> ### 🍴 Fork Notice — `darkhucx/claude-code-harness` @ v4.4.0
+>
+> This fork adds a **`--gemini` delegation engine** on top of the upstream `claude-code-harness`, paralleling the existing `--codex` flow. See [Gemini Engine](#gemini-engine-fork-addition) for the feature details and [Using This Fork](#using-this-fork) for install/update/troubleshooting walkthrough specific to this fork.
+>
+> Upstream home: [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness). This fork tracks a `feat/gemini-engine` branch and bumps version to **4.4.0** to avoid install-cache collisions with upstream.
+
+---
+
 ## v4.2 Update — Claude Code 2.1.99-110 + Opus 4.7
 
 > **Hokage line carries forward. Full Claude Code 2.1.99-2.1.110 + Opus 4.7 integration. Plugin manifest now matches the official `plugins-reference` schema.**
@@ -363,6 +371,7 @@ Delegate implementation tasks to OpenAI Codex in parallel. Codex implements, sel
 
 </details>
 
+<a name="gemini-engine-fork-addition"></a>
 <details>
 <summary><strong>Gemini Engine</strong> <em>(fork addition)</em></summary>
 
@@ -399,6 +408,114 @@ bash scripts/gemini-companion.sh result <job-id> --json
 > /gemini:setup
 > ```
 > The `mcp__gemini__*` deny entry in `.claude-plugin/settings.json` keeps invocations routed through the companion script (same pattern as Codex).
+
+</details>
+
+<a name="using-this-fork"></a>
+<details>
+<summary><strong>Using This Fork</strong> <em>(install, update, troubleshoot)</em></summary>
+
+This section covers fork-specific workflow. Generic upstream usage is unchanged.
+
+### Prerequisites
+
+```bash
+# 1. Gemini CLI (OAuth-based; no API key required)
+npm install -g @google/gemini-cli@latest
+gemini --version   # must be >= 0.38.1
+gemini auth        # Google OAuth login
+
+# 2. Gemini plugin for Claude Code (third-party; provides /gemini:* commands)
+# Run inside a Claude Code session:
+# /plugin marketplace add sakibsadmanshajib/gemini-plugin-cc
+# /plugin install gemini@google-gemini        ← note: plugin name is "gemini", marketplace is "google-gemini"
+# /gemini:setup                               ← verify authMethod: oauth-personal
+```
+
+### First-time install (any new project)
+
+Inside a Claude Code session with the target project open:
+
+```
+/plugin marketplace add darkhucx/claude-code-harness
+/plugin install claude-code-harness@claude-code-harness-marketplace
+/reload-plugins
+/harness-setup           # initializes harness-mem, Plans.md, etc.
+```
+
+Verify the fork version loaded by checking the argument hint — it should include `--gemini`:
+
+```
+/harness-work
+→ [all] [task-number|range] [--codex] [--gemini] [--parallel N] ...
+                                       ^^^^^^^^
+                                       if missing, see "Troubleshooting" below
+```
+
+### Updating after fork code changes
+
+When this fork advances (new commits on `feat/gemini-engine`), consumers of the fork need to:
+
+```
+/plugin update claude-code-harness
+/reload-plugins
+```
+
+Critically, **a fresh `/plugin update` is only effective when the fork's VERSION has been bumped**. If the fork publishes new code under the same version number, CC reuses the cached install directory and silently serves stale code. The fork maintainer should bump via:
+
+```bash
+./scripts/sync-version.sh bump patch    # bugfix
+./scripts/sync-version.sh bump minor    # new feature
+```
+
+before pushing.
+
+### Troubleshooting
+
+**Symptom**: After opening a new CC session in a project, `/harness-work` argument-hint no longer shows `--gemini`.
+
+**Cause**: CC's install cache is keyed by `<marketplace-name>/<plugin-name>/<version>`. If the fork and upstream share all three, CC will silently load whichever was cached first. This fork avoids the collision by running at v4.4.0 (upstream is at v4.3.x), but if you downgraded or if a future upstream release also ships 4.4.x, the collision returns.
+
+**Fixes (in order of preference)**:
+
+1. `/plugin update claude-code-harness` + `/reload-plugins`. Usually enough if versions differ.
+2. Force-clean the stale cache directory:
+   ```bash
+   rm -rf ~/.claude/plugins/cache/claude-code-harness-marketplace/claude-code-harness/<old-version>
+   ```
+   Then `/reload-plugins` inside CC.
+3. If `/gemini:setup` responds with `ACP process is not ready` or `[object Object]`, your Gemini CLI is below 0.38.1. Upgrade with `npm install -g @google/gemini-cli@latest` and retry.
+
+**Symptom**: `/plugin install gemini-plugin-cc@sakibsadmanshajib` returns "Plugin not found in any marketplace".
+
+**Cause**: Wrong identifier. The install syntax is `<plugin-name>@<marketplace-name>`, not `<repo-name>@<owner>`. Per the plugin's `marketplace.json`:
+
+- Marketplace name: `google-gemini`
+- Plugin name: `gemini`
+
+Correct command: `/plugin install gemini@google-gemini`.
+
+### Uninstalling the fork (back to upstream)
+
+```
+/plugin uninstall claude-code-harness@claude-code-harness-marketplace
+/plugin marketplace remove claude-code-harness-marketplace
+/plugin marketplace add Chachamaru127/claude-code-harness
+/plugin install claude-code-harness@claude-code-harness-marketplace
+/reload-plugins
+```
+
+### Contributing upstream
+
+The fork diverges on `feat/gemini-engine`. To propose upstreaming the `--gemini` engine:
+
+```bash
+gh pr create \
+  --repo Chachamaru127/claude-code-harness \
+  --base main --head darkhucx:feat/gemini-engine \
+  --title "feat: add --gemini delegation engine" \
+  --body "..."
+```
 
 </details>
 

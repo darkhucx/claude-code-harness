@@ -3,6 +3,7 @@ name: session-init
 description: "環境チェックとタスク状況概要でセッション初期化。Use when user mentions starting a session, beginning work, or status checks. Do NOT load for: implementation work, reviews, or mid-session tasks."
 description-en: "Initializes session with environment checks and task status overview. Use when user mentions starting a session, beginning work, or status checks. Do NOT load for: implementation work, reviews, or mid-session tasks."
 description-ja: "環境チェックとタスク状況概要でセッション初期化。Use when user mentions starting a session, beginning work, or status checks. Do NOT load for: implementation work, reviews, or mid-session tasks."
+description-zh: "通过环境检查与任务状态概览完成会话初始化。在用户提到开始会话、开始工作或状态检查时使用。不用于：实现工作、评审或会话中任务。"
 allowed-tools: ["Read", "Write", "Bash"]
 user-invocable: false
 ---

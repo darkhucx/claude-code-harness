@@ -34,6 +34,7 @@ skills/
 name: skill-name
 description: "English description for auto-loading. Include trigger phrases."
 description-ja: "日本語の説明。トリガーフレーズを含む。"
+description-zh: "中文描述。包含触发短语。"
 allowed-tools: ["Read", "Write", "Edit", "Bash", ...]
 ---
 ```
@@ -44,7 +45,9 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", ...]
 |-------|----------|-------------|
 | `name` | Yes | Skill identifier (matches directory name) |
 | `description` | Yes | English description for auto-loading (include trigger phrases). Token-efficient. |
-| `description-ja` | Recommended | Japanese description for i18n. Use `scripts/set-locale.sh ja` to swap into `description`. |
+| `description-ja` | Required | Japanese description for i18n. Use `scripts/i18n/set-locale.sh ja` to swap into `description`. |
+| `description-zh` | Required | Chinese description for i18n. Use `scripts/i18n/set-locale.sh zh` to swap into `description`. |
+| `description-en` | Auto-managed | Backup of original English `description`. Auto-created by `set-locale.sh` on first non-`en` switch. Used by `set-locale.sh en` to restore. |
 | `allowed-tools` | No | Tools the skill can use |
 | `argument-hint` | No | Usage hint (e.g., `"[option1|option2]"`) |
 | `disable-model-invocation` | No | Set `true` for dangerous operations |
@@ -81,6 +84,28 @@ description: "Manages CI/CD failures. Use when user mentions CI failures, build 
 ```yaml
 description: "CI skill"
 ```
+
+### 6. i18n Workflow
+
+`description-ja` と `description-zh` の追加は新規 skill 作成時に必須。
+`scripts/i18n/check-translations.sh` が CI で検証する。
+
+```bash
+# Switch active description to Japanese
+./scripts/i18n/set-locale.sh ja
+
+# Switch active description to Chinese
+./scripts/i18n/set-locale.sh zh
+
+# Restore to English
+./scripts/i18n/set-locale.sh en
+
+# Verify all skills have required locale fields
+./scripts/i18n/check-translations.sh
+```
+
+新しい locale を追加する場合は `set-locale.sh` の case 分岐と `check-translations.sh` の
+`REQUIRED_SKILL_LOCALES` 配列、本表を同時に更新する。
 
 ## Skill File Structure Template
 

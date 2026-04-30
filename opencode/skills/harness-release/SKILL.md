@@ -3,6 +3,7 @@ name: harness-release
 description: "汎用リリース自動化スキル。Keep a Changelog と GitHub を使うあらゆるプロジェクトで動作。単一確認ゲートで bump 判定・CHANGELOG 昇格・タグ・GitHub Release まで全自動実行する。リリース、バージョンバンプ、タグ作成、公開で起動。実装・コードレビュー・プランニング・セットアップには使わない。"
 description-en: "Generic release automation for projects using Keep a Changelog + GitHub. Single confirmation gate then end-to-end automation: bump detection, CHANGELOG promotion, tag, GitHub Release. Trigger: release, version bump, publish. Do NOT load for: implementation, review, planning, setup."
 description-ja: "汎用リリース自動化スキル。Keep a Changelog と GitHub を使うあらゆるプロジェクトで動作。単一確認ゲートで bump 判定・CHANGELOG 昇格・タグ・GitHub Release まで全自動実行する。リリース、バージョンバンプ、タグ作成、公開で起動。実装・コードレビュー・プランニング・セットアップには使わない。"
+description-zh: "通用发布自动化技能。适用于任何使用 Keep a Changelog 和 GitHub 的项目。单一确认门之后端到端自动完成 bump 判定、CHANGELOG 升级、打 tag、GitHub Release。触发：发布、版本提升、tag 创建、公开。不用于：实现、代码评审、计划、初始化。"
 allowed-tools: ["Read", "Write", "Edit", "Bash"]
 argument-hint: "[patch|minor|major|--dry-run]"
 context: fork

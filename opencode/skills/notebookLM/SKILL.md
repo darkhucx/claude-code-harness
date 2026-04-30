@@ -3,6 +3,7 @@ name: notebookLM
 description: "NotebookLM用YAMLやスライドを生成。ドキュメント職人の腕の見せ所。Use when user mentions NotebookLM, YAML, slides, or presentations. Do NOT load for: implementation work, code fixes, reviews, or deployments."
 description-en: "Generate NotebookLM YAML and slides. Document craftsman shows skill. Use when user mentions NotebookLM, YAML, slides, or presentations. Do NOT load for: implementation work, code fixes, reviews, or deployments."
 description-ja: "NotebookLM用YAMLやスライドを生成。ドキュメント職人の腕の見せ所。Use when user mentions NotebookLM, YAML, slides, or presentations. Do NOT load for: implementation work, code fixes, reviews, or deployments."
+description-zh: "生成 NotebookLM YAML 与幻灯片。文档工匠的拿手好戏。在用户提到 NotebookLM、YAML、幻灯片或演示文稿时使用。不用于：实现工作、代码修复、评审或部署。"
 allowed-tools: ["Read", "Write", "Edit"]
 disable-model-invocation: true
 user-invocable: false

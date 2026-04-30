@@ -3,6 +3,7 @@ name: harness-loop
 description: "HAR: Codex 専用の長時間ループ実行。バックグラウンドランナーで 1 サイクルずつ実務を進め、status / stop で監視できる。長時間、loop、ループ、autonomous、background、Codex で起動。Do NOT load for: 単発の実装、通常レビュー、リリース。"
 description-en: "HAR: Codex-native long-running loop runner. Uses a real background runner, one cycle at a time, with status/stop controls. Trigger: long-running, loop, autonomous, background, Codex. Do NOT load for: one-shot implementation, normal review, release."
 description-ja: "HAR: Codex 専用の長時間ループ実行。実際のバックグラウンドランナーが 1 サイクルずつ仕事を進め、status / stop で監視できる。長時間、loop、ループ、autonomous、background、Codex で起動。"
+description-zh: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
 allowed-tools: ["Read", "Bash"]
 argument-hint: "[all|N-M] [--max-cycles N] [--pacing worker|ci|plateau|night]"
 disable-model-invocation: true

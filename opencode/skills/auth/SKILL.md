@@ -3,6 +3,7 @@ name: auth
 description: "認証と決済機能を実装。Clerk、Supabase Auth、Stripeに対応。Use when user mentions login, authentication, payments, subscriptions, or Stripe. Do NOT load for: general UI work, database design, or non-auth features."
 description-en: "Implements authentication and payment features using Clerk, Supabase Auth, or Stripe. Use when user mentions login, authentication, payments, subscriptions, or Stripe. Do NOT load for: general UI work, database design, or non-auth features."
 description-ja: "認証と決済機能を実装。Clerk、Supabase Auth、Stripeに対応。Use when user mentions login, authentication, payments, subscriptions, or Stripe. Do NOT load for: general UI work, database design, or non-auth features."
+description-zh: "实现身份认证与支付功能。支持 Clerk、Supabase Auth、Stripe。在用户提到登录、身份认证、支付、订阅或 Stripe 时使用。不用于：通用 UI 工作、数据库设计或非认证类功能。"
 allowed-tools: ["Read", "Write", "Edit", "Bash"]
 user-invocable: false
 ---

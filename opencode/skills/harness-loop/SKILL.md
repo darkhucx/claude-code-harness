@@ -2,6 +2,7 @@
 name: harness-loop
 description: "長時間タスクを /loop （CC dynamic mode）と ScheduleWakeup で wake-up 毎に fresh context で再入実行。harness-work を内部で Agent 呼び出し。長時間、ループ、loop、wake-up、autonomous に対応。Do NOT load for: 単発タスク実行・レビュー・リリース・プランニング。"
 description-ja: "長時間タスクを /loop と ScheduleWakeup で wake-up 毎に fresh context で再入実行。harness-work を内部で Agent 呼び出し。長時間、ループ、loop、wake-up、autonomous に対応。"
+description-zh: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
 allowed-tools: ["Read", "Edit", "Bash", "Task", "ScheduleWakeup", "mcp__harness__harness_mem_resume_pack", "mcp__harness__harness_mem_record_checkpoint"]
 argument-hint: "[all|N-M] [--max-cycles N] [--pacing worker|ci|plateau|night]"
 user-invocable: true

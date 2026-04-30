@@ -3,6 +3,7 @@ name: session-memory
 description: "セッション間の学習と記憶の永続化を管理。Use when user asks about previous sessions, history, or to continue from before. Do NOT load for: implementation work, reviews, or ad-hoc information."
 description-en: "Manages cross-session learning and memory persistence. Use when user asks about previous sessions, history, or to continue from before. Do NOT load for: implementation work, reviews, or ad-hoc information."
 description-ja: "セッション間の学習と記憶の永続化を管理。Use when user asks about previous sessions, history, or to continue from before. Do NOT load for: implementation work, reviews, or ad-hoc information."
+description-zh: "管理跨会话学习与记忆持久化。在用户询问以往会话、历史或希望接续之前内容时使用。不用于：实现工作、评审或临时信息。"
 allowed-tools: ["Read", "Write", "Edit"]
 user-invocable: false
 ---

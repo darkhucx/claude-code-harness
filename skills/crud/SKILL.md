@@ -3,6 +3,7 @@ name: crud
 description: "CRUDをサクッと自動生成。ボイラープレートはAIにお任せ。Use when user mentions CRUD, entity generation, or wants to create API endpoints. Do NOT load for: UI component creation, form design, database schema discussions."
 description-en: "Auto-generate CRUD quickly. Boilerplate left to AI. Use when user mentions CRUD, entity generation, or wants to create API endpoints. Do NOT load for: UI component creation, form design, database schema discussions."
 description-ja: "CRUDをサクッと自動生成。ボイラープレートはAIにお任せ。Use when user mentions CRUD, entity generation, or wants to create API endpoints. Do NOT load for: UI component creation, form design, database schema discussions."
+description-zh: "快速自动生成 CRUD。样板代码交给 AI。在用户提到 CRUD、实体生成或想创建 API 端点时使用。不用于：UI 组件创建、表单设计、数据库 schema 讨论。"
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 argument-hint: "<entity-name>"
 user-invocable: false

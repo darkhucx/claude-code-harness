@@ -3,6 +3,7 @@ name: generate-video
 description: "プロダクトデモ動画を自動生成。百聞は一見にしかず、を体現。Use when user mentions '/generate-video', video generation, product demos, or visual documentation. Do NOT load for: embedding video players, live demos, video playback features. Requires Remotion setup."
 description-en: "Auto-generate product demo videos. A picture worth thousand words, embodied. Use when user mentions '/generate-video', video generation, product demos, or visual documentation. Do NOT load for: embedding video players, live demos, video playback features. Requires Remotion setup."
 description-ja: "プロダクトデモ動画を自動生成。百聞は一見にしかず、を体現。Use when user mentions '/generate-video', video generation, product demos, or visual documentation. Do NOT load for: embedding video players, live demos, video playback features. Requires Remotion setup."
+description-zh: "自动生成产品演示视频。一图胜千言的具象呈现。在用户提到 '/generate-video'、视频生成、产品演示或视觉文档时使用。不用于：嵌入视频播放器、实时演示、视频回放功能。需要 Remotion 配置。"
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task", "AskUserQuestion", "WebFetch"]
 disable-model-invocation: true
 user-invocable: false

@@ -6,6 +6,39 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### テーマ: 中文 (zh) を skill description i18n に追加
+
+**`scripts/i18n/set-locale.sh` の locale サポートに `zh` を追加し、全 SKILL.md (skills/ + opencode/skills/ + codex/.codex/skills/ 計 92 ファイル) に `description-zh` フィールドを追加。`./scripts/i18n/set-locale.sh zh` で skill description が一括で中文に切り替わる。**
+
+---
+
+#### 1. `set-locale.sh` の 3-locale 対応 (ja/en/zh)
+
+**今まで**: `set-locale.sh ja` / `en` の 2 言語のみ対応。`ja` 分岐と `en` 分岐が個別実装でした。
+
+**今後**: locale-agnostic にリファクタし、`zh` 引数を追加。`description-{locale}` を `description` に流し込む共通ロジックに集約。
+
+```bash
+./scripts/i18n/set-locale.sh ja   # 日本語
+./scripts/i18n/set-locale.sh zh   # 中文
+./scripts/i18n/set-locale.sh en   # English (description-en backup から復元)
+```
+
+#### 2. `check-translations.sh` の必須 locale チェック拡張
+
+**今まで**: `description-ja` のみ必須チェック。
+
+**今後**: `REQUIRED_SKILL_LOCALES=("description-ja" "description-zh")` 配列で必須 locale を明示。skills/ (SSOT) / opencode/skills (mirror) / codex/.codex/skills (mirror) を全て同じルールで検証。新 locale を増やすときは配列に 1 行追加するだけで CI ゲートが効く。
+
+#### 3. 全 SKILL.md に `description-zh` を追加
+
+92 ファイル全件に中文 translation を追加 (description-en を base に翻訳)。`./scripts/i18n/check-translations.sh` で全 pass を確認済み。
+
+#### 4. `skill-editing.md` / `CLAUDE.md` の運用ドキュメント更新
+
+- `.claude/rules/skill-editing.md` の frontmatter テーブルに `description-zh` 行と i18n Workflow 節を追加
+- `CLAUDE.md` の "Language" 節を「日本語が応答デフォルト + skill description は locale 切替可能 + 中文用户运行指引」に書き直し
+
 ## [4.3.3] - 2026-04-20
 
 ### テーマ: harness-mem 未使用ユーザーへの誤警告 regression を hotfix

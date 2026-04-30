@@ -34,7 +34,12 @@ Details: [.claude/rules/github-release.md](.claude/rules/github-release.md) (Kee
 
 ### Language
 
-All responses must be in **Japanese** (including `context: fork` skills).
+**Response language**: Japanese is the default for assistant replies and agent output (Worker, Reviewer, Advisor, including `context: fork` skills). When the user writes in another language, mirror their language for the conversational reply but keep commit messages, CHANGELOG entries, and file artifacts in Japanese unless explicitly told otherwise.
+
+**Skill description i18n**: Skill `description` フィールドは `scripts/i18n/set-locale.sh {ja|en|zh}` で切り替え可能。
+`description-ja` / `description-zh` は全 SKILL.md で必須 (`scripts/i18n/check-translations.sh` が検証)。`description-en` は `set-locale.sh` が初回切替時に自動バックアップを作成する。
+
+**中文用户运行指引**: 在中文环境运行时执行 `./scripts/i18n/set-locale.sh zh` 以将所有 SKILL.md 的 `description` 切换为中文版本。回到英文请用 `./scripts/i18n/set-locale.sh en`。
 
 ### Code Style
 

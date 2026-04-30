@@ -3,6 +3,7 @@ name: x-announce
 description: "Harness リリースの X (Twitter) 告知スレッドを画像付きで自動生成。投稿テキスト5本 + Gemini画像5枚を1発出力。"
 description-en: "Generate X (Twitter) announcement thread with images for Harness releases. Use when user mentions: X post, tweet, announce release, SNS announce. Do NOT load for: GitHub release notes, CHANGELOG editing."
 description-ja: "Harness リリースの X (Twitter) 告知スレッドを画像付きで自動生成。投稿テキスト5本 + Gemini画像5枚を1発出力。"
+description-zh: "在 X (Twitter) 上发布发布说明。生成符合字数限制的简明发布公告。"
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
 argument-hint: "[version|latest]"
 user-invocable: false

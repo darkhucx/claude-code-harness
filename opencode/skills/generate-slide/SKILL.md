@@ -2,6 +2,7 @@
 name: generate-slide
 description: "Nano Banana Proでプロジェクト紹介スライドを自動生成。スライド、1枚紹介、ビジュアル紹介で起動。動画生成やデッキ作成では起動しない。"
 description-ja: "Nano Banana Proでプロジェクト紹介スライドを自動生成。スライド、1枚紹介、ビジュアル紹介で起動。動画生成やデッキ作成では起動しない。"
+description-zh: "使用 Nano Banana Pro 自动生成项目介绍幻灯片。在用户提到幻灯片、项目幻灯片、1 页摘要或视觉介绍时触发。不用于视频生成或演示文稿制作。"
 description-en: "Generate project intro slides with Nano Banana Pro. Use when user mentions slide, project slide, 1-page summary, or visual introduction."
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"]
 disable-model-invocation: true

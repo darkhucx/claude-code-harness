@@ -64,7 +64,7 @@ jobs:
 
       - name: Build Go binaries
         run: |
-          cd go && bash scripts/build-all.sh
+          cd go && HARNESS_BUILD_OUTDIR=/tmp/harness-release-bin bash scripts/build-all.sh
 
       - name: Create GitHub Release
         if: steps.check.outputs.exists == 'false'
@@ -78,9 +78,10 @@ jobs:
             --title "$TAG" \
             --notes-file /tmp/release-body.md \
             --verify-tag \
-            bin/harness-darwin-arm64 \
-            bin/harness-darwin-amd64 \
-            bin/harness-linux-amd64
+            /tmp/harness-release-bin/harness-darwin-arm64 \
+            /tmp/harness-release-bin/harness-darwin-amd64 \
+            /tmp/harness-release-bin/harness-linux-amd64 \
+            /tmp/harness-release-bin/harness-windows-amd64.exe
 
           echo "✅ Release created for $TAG with Go binaries"
 
@@ -91,9 +92,17 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
 
-          # Upload binaries if not already attached
-          for bin in bin/harness-darwin-arm64 bin/harness-darwin-amd64 bin/harness-linux-amd64; do
-            gh release upload "$TAG" "$bin" --clobber 2>/dev/null || true
+          # Upload binaries only when missing. Never clobber an existing manual
+          # release asset; release-owned binaries may have stricter metadata
+          # verification than the safety-net workflow can prove.
+          existing_assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          for bin in /tmp/harness-release-bin/harness-darwin-arm64 /tmp/harness-release-bin/harness-darwin-amd64 /tmp/harness-release-bin/harness-linux-amd64 /tmp/harness-release-bin/harness-windows-amd64.exe; do
+            name="$(basename "$bin")"
+            if printf '%s\n' "$existing_assets" | grep -Fxq "$name"; then
+              echo "asset already exists, skipping: $name"
+              continue
+            fi
+            gh release upload "$TAG" "$bin"
           done
 
           echo "✅ Go binaries uploaded to $TAG"

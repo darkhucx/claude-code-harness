@@ -78,8 +78,30 @@ sync_dir_to_dir() {
   local dst="${target_dir}/${rel_path}"
   if [ -d "$src" ]; then
     rm -rf "$dst"
-    mkdir -p "$(dirname "$dst")"
-    cp -R "$src" "$dst"
+    mkdir -p "$dst"
+
+    # When running from a source checkout, sync only tracked files. The working
+    # tree can contain ignored/private skill directories, .DS_Store files, or
+    # local scratch data under manifest-declared directories; those must never
+    # be copied into the installed plugin cache.
+    if git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      local copied=0
+      while IFS= read -r -d '' tracked_path; do
+        local tracked_src="${PROJECT_ROOT}/${tracked_path}"
+        local tracked_dst="${target_dir}/${tracked_path}"
+        if [ -f "$tracked_src" ]; then
+          mkdir -p "$(dirname "$tracked_dst")"
+          cp -p "$tracked_src" "$tracked_dst"
+          copied=1
+        fi
+      done < <(git -C "$PROJECT_ROOT" ls-files -z -- "$rel_path")
+
+      if [ "$copied" = 1 ]; then
+        return
+      fi
+    fi
+
+    cp -R "$src"/. "$dst"/
   fi
 }
 
@@ -93,6 +115,35 @@ sync_dir() {
   if [ -d "$MARKETPLACE_DIR" ]; then
     sync_dir_to_dir "$rel_path" "$MARKETPLACE_DIR"
   fi
+}
+
+cleanup_private_paths_in_dir() {
+  local target_dir="$1"
+  [ -d "$target_dir" ] || return 0
+
+  local private_paths=(
+    "skills/claude-codex-upstream-update"
+    "skills/harness-release-internal"
+    "skills/x-announce"
+    "skills/x-article"
+    "opencode/skills/claude-codex-upstream-update"
+    "opencode/skills/harness-release-internal"
+    "opencode/skills/x-announce"
+    "opencode/skills/x-article"
+    "codex/.codex/skills/claude-codex-upstream-update"
+    "codex/.codex/skills/harness-release-internal"
+    "codex/.codex/skills/x-announce"
+    "codex/.codex/skills/x-article"
+    "docs/private"
+    "docs/research"
+  )
+
+  local rel_path
+  for rel_path in "${private_paths[@]}"; do
+    rm -rf "${target_dir}/${rel_path}"
+  done
+
+  find "${target_dir}" -name .DS_Store -delete 2>/dev/null || true
 }
 
 # Critical files to sync to distribution cache
@@ -126,3 +177,8 @@ critical_dirs=(
 for dir in "${critical_dirs[@]}"; do
   sync_dir "$dir"
 done
+
+cleanup_private_paths_in_dir "$CACHE_DIR"
+if [ -d "$MARKETPLACE_DIR" ]; then
+  cleanup_private_paths_in_dir "$MARKETPLACE_DIR"
+fi

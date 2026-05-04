@@ -6,6 +6,12 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### Fixed
+
+- Plugin cache sync now copies manifest-declared directories from tracked files only and removes stale private doc/skill paths, preventing ignored local-only skills, private notes, and OS metadata from entering the installed plugin cache.
+- The release safety-net workflow now builds binaries outside the tracked `bin/` directory and avoids clobbering existing release assets, preserving manually verified binary metadata.
+- Local-only `claude-codex-upstream-update`, `x-announce`, and `x-article` skill surfaces plus `docs/private/` notes are no longer tracked in the public distribution set.
+
 ## [4.5.2] - 2026-05-04
 
 ### Changed

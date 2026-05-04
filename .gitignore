@@ -124,9 +124,15 @@ skills/x-announce/
 skills/x-promo/
 skills/x-release-harness/
 skills/harness-release-internal/
+opencode/skills/claude-codex-upstream-update/
+opencode/skills/x-article/
+opencode/skills/x-announce/
 opencode/skills/x-promo/
 opencode/skills/x-release-harness/
 opencode/skills/harness-release-internal/
+codex/.codex/skills/claude-codex-upstream-update/
+codex/.codex/skills/x-article/
+codex/.codex/skills/x-announce/
 codex/.codex/skills/x-promo/
 codex/.codex/skills/x-release-harness/
 codex/.codex/skills/harness-release-internal/
@@ -183,6 +189,7 @@ docs/presentation/11.png
 
 # 調査・研究用ドキュメント（非公開）
 docs/research/
+docs/private/
 
 # 一時的な画像ファイル
 docs/images/image*.webp

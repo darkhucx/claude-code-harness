@@ -3,17 +3,37 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_HOME="$(mktemp -d)"
-trap 'rm -rf "${TMP_HOME}"' EXIT
+PRIVATE_SYNC_TEST_DIR="${ROOT_DIR}/skills/test-private-sync"
+trap 'rm -rf "${TMP_HOME}" "${PRIVATE_SYNC_TEST_DIR}"' EXIT
+
+# This directory is intentionally ignored by .gitignore (skills/test-*). It
+# simulates local-only development skills that must not be copied into the
+# installed plugin cache just because plugin.json declares ./skills/.
+mkdir -p "${PRIVATE_SYNC_TEST_DIR}"
+printf '%s\n' '---' 'name: test-private-sync' 'description: local-only sync test' '---' > "${PRIVATE_SYNC_TEST_DIR}/SKILL.md"
 
 SOURCE_VERSION="$(tr -d '[:space:]' < "${ROOT_DIR}/VERSION")"
 CACHE_DIR="${TMP_HOME}/.claude/plugins/cache/claude-code-harness-marketplace/claude-code-harness/${SOURCE_VERSION}"
 MARKETPLACE_DIR="${TMP_HOME}/.claude/plugins/marketplaces/claude-code-harness-marketplace"
 mkdir -p "${CACHE_DIR}" "${MARKETPLACE_DIR}/.claude-plugin"
+mkdir -p \
+  "${CACHE_DIR}/codex/.codex/skills/x-article" \
+  "${CACHE_DIR}/skills/harness-release-internal" \
+  "${CACHE_DIR}/docs/private" \
+  "${MARKETPLACE_DIR}/codex/.codex/skills/x-article" \
+  "${MARKETPLACE_DIR}/skills/harness-release-internal" \
+  "${MARKETPLACE_DIR}/docs/private"
 
 # 古い/欠落したキャッシュと marketplace copy を用意して、CLAUDE_PLUGIN_ROOT を
 # plugin root として渡したときに正しく同期元解決できることを確認する。
 printf 'stale\n' > "${CACHE_DIR}/VERSION"
 printf 'stale\n' > "${MARKETPLACE_DIR}/VERSION"
+printf 'stale\n' > "${CACHE_DIR}/codex/.codex/skills/x-article/SKILL.md"
+printf 'stale\n' > "${CACHE_DIR}/skills/harness-release-internal/SKILL.md"
+printf 'stale\n' > "${CACHE_DIR}/docs/private/stale-note.md"
+printf 'stale\n' > "${MARKETPLACE_DIR}/codex/.codex/skills/x-article/SKILL.md"
+printf 'stale\n' > "${MARKETPLACE_DIR}/skills/harness-release-internal/SKILL.md"
+printf 'stale\n' > "${MARKETPLACE_DIR}/docs/private/stale-note.md"
 printf '{"hooks":{"SessionStart":[{"hooks":[{"command":"\"${CLAUDE_PLUGIN_ROOT}/bin/harness\" hook session-start"}]}]}}' > "${MARKETPLACE_DIR}/.claude-plugin/hooks.json"
 
 HOME="${TMP_HOME}" CLAUDE_PLUGIN_ROOT="${ROOT_DIR}" bash "${ROOT_DIR}/scripts/sync-plugin-cache.sh" >/dev/null 2>&1
@@ -64,6 +84,21 @@ done
 for dir in "${required_cached_dirs[@]}"; do
   if [[ ! -d "${dir}" ]]; then
     echo "sync-plugin-cache did not populate required directory: ${dir}"
+    exit 1
+  fi
+done
+
+for private_path in \
+  "${CACHE_DIR}/skills/test-private-sync" \
+  "${CACHE_DIR}/skills/harness-release-internal" \
+  "${CACHE_DIR}/codex/.codex/skills/x-article" \
+  "${CACHE_DIR}/docs/private" \
+  "${MARKETPLACE_DIR}/skills/test-private-sync" \
+  "${MARKETPLACE_DIR}/skills/harness-release-internal" \
+  "${MARKETPLACE_DIR}/codex/.codex/skills/x-article" \
+  "${MARKETPLACE_DIR}/docs/private"; do
+  if [[ -e "${private_path}" ]]; then
+    echo "sync-plugin-cache copied ignored/private skill path: ${private_path}"
     exit 1
   fi
 done

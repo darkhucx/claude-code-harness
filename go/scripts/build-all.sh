@@ -8,7 +8,7 @@
 #   - Go 1.21 以上がインストール済み
 #   - modernc.org/sqlite (pure Go) を使用しているため CGO は不要
 #
-# 出力先: ../bin/harness-{GOOS}-{GOARCH}[.exe]
+# 出力先: ${HARNESS_BUILD_OUTDIR:-../bin}/harness-{GOOS}-{GOARCH}[.exe]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,7 +17,7 @@ REPO_ROOT="$(cd "${GO_DIR}/.." && pwd)"
 
 VERSION=$(cat "${REPO_ROOT}/VERSION" 2>/dev/null || echo "dev")
 LDFLAGS="-s -w -X main.version=${VERSION}"
-OUTDIR="${REPO_ROOT}/bin"
+OUTDIR="${HARNESS_BUILD_OUTDIR:-${REPO_ROOT}/bin}"
 mkdir -p "${OUTDIR}"
 
 platforms=(

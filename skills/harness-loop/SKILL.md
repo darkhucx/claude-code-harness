@@ -21,7 +21,7 @@ user-invocable: true
 > 長めの離席や再入が多い運用では `ENABLE_PROMPT_CACHING_1H=1` を優先する。
 
 > **長時間セッション推奨 (CC 2.1.108+)**:
-> セッション長が 30 分を超える見込みの場合、開始前に `bash scripts/enable-1h-cache.sh` を実行して 1 時間 prompt cache を opt-in すること。
+> セッション長が 30 分を超える見込みの場合、plugin bundle root 解決後に `bash "${HARNESS_PLUGIN_ROOT}/scripts/enable-1h-cache.sh"` を実行して 1 時間 prompt cache を opt-in すること。
 
 > **Codex 0.123.0 automatic bug fix inheritance**:
 > manual shell follow-up queue と `/copy` after rollback は Codex 本体の TUI 修正として自動継承する。
@@ -65,8 +65,30 @@ user-invocable: true
 
 詳細版: [`${CLAUDE_SKILL_DIR}/references/flow.md`](${CLAUDE_SKILL_DIR}/references/flow.md)
 
+### plugin bundle root 解決
+
+`harness-loop` は host project の cwd ではなく、plugin bundle root 配下の helper script を呼ぶ。
+たとえると、作業机（host project）と工具箱（plugin bundle）を分けて扱う。
+
+各 wake-up の冒頭で次の順に `HARNESS_PLUGIN_ROOT` を決める:
+
+1. `CLAUDE_PLUGIN_ROOT` があり、`scripts/` を含むならそれを使う
+2. `CLAUDE_PLUGIN_ROOT` がなければ、`CLAUDE_SKILL_DIR` から plugin bundle root を逆算する
+   - `skills/harness-loop` 配布なら `${CLAUDE_SKILL_DIR}/../..`
+   - `.agents/skills/harness-loop` mirror 配布なら `${CLAUDE_SKILL_DIR}/../../..`
+3. どちらでも解けない場合は停止し、`CLAUDE_PLUGIN_ROOT` を plugin bundle root に設定して再実行する
+
+`Plans.md` と `.claude/state/...` は host project 側に置く。
+helper script だけを `${HARNESS_PLUGIN_ROOT}/scripts/...` から呼ぶ。
+
 ```
 wake-up
+  │
+  ▼
+[Step 0] plugin bundle root を HARNESS_PLUGIN_ROOT に解決
+  CLAUDE_PLUGIN_ROOT が有効ならそれを使用
+  なければ CLAUDE_SKILL_DIR から plugin bundle root を逆算
+  ※ host project cwd の scripts/ は参照しない
   │
   ▼
 [Step 1] Plans.md を先に読む
@@ -76,15 +98,15 @@ wake-up
   ▼
 [Step 2] sprint-contract 存在確認 & 生成
   .claude/state/contracts/${task_id}.sprint-contract.json の有無を確認
-  無ければ node scripts/generate-sprint-contract.js ${task_id} で生成
-  生成直後（初回のみ）: bash scripts/enrich-sprint-contract.sh <contract-path> \
+  無ければ node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js" ${task_id} で生成
+  生成直後（初回のみ）: bash "${HARNESS_PLUGIN_ROOT}/scripts/enrich-sprint-contract.sh" <contract-path> \
     --check "wake-up 自動承認（harness-loop のため DoD を reviewer 観点で確認）" \
     --approve  ← draft → approved に昇格
   （既存 contract は approved 済みのためスキップ）
   │
   ▼
 [Step 3] contract readiness チェック
-  bash scripts/ensure-sprint-contract-ready.sh <contract-path>
+  bash "${HARNESS_PLUGIN_ROOT}/scripts/ensure-sprint-contract-ready.sh" <contract-path>
   │
   ▼
 [Step 4] Resume pack 再読込
@@ -123,7 +145,7 @@ wake-up
   │
   ▼
 [Step 6] plateau 判定
-  scripts/detect-review-plateau.sh ${current_task_id}
+  bash "${HARNESS_PLUGIN_ROOT}/scripts/detect-review-plateau.sh" ${current_task_id}
   │
   ├── PIVOT_REQUIRED（exit 2）  → ループ停止 + ユーザーエスカレーション
   ├── INSUFFICIENT_DATA（exit 1）→ 続行

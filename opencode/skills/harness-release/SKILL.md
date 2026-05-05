@@ -149,26 +149,39 @@ def detect_version_file():
 
 ひとことで言うと、`git tag -a` を手で組み立てる前に、Claude Code 本体の plugin validation に通してから `{plugin-name}--v{version}` tag を作る。
 
-Pre-Gate ではファイルを書き換えず、以下を確認する:
+Pre-Gate ではファイルを書き換えず、以下を確認する。
+version sync は `grep` / `sed` で拾わず、JSON は structured parser で読む:
 
 ```bash
 command -v claude >/dev/null || { echo "claude CLI がありません"; exit 1; }
 claude plugin validate .claude-plugin/plugin.json
 
-[ -f VERSION ] || { echo "Claude plugin tag flow では VERSION が必要です"; exit 1; }
-VERSION_VALUE="$(tr -d '[:space:]' < VERSION)"
-PLUGIN_VERSION="$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')"
-if [ "${VERSION_VALUE}" != "${PLUGIN_VERSION}" ]; then
-  echo "VERSION と .claude-plugin/plugin.json が不一致なら tag に進まない: VERSION=${VERSION_VALUE}, plugin.json=${PLUGIN_VERSION}"
-  exit 1
-fi
+HARNESS_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-.}"
+python3 "${HARNESS_PLUGIN_ROOT}/scripts/check-release-version-sync.py" --root .
 
 claude plugin tag .claude-plugin --dry-run
 ```
 
-この check は 2 つの事故を防ぐためにある:
+`${HARNESS_PLUGIN_ROOT}/scripts/check-release-version-sync.py` は、存在する release surface をすべて読み取り、canonical を `VERSION > package.json > .claude-plugin/plugin.json` の順で決める。
+そのうえで、以下の不一致・欠落が 1 つでもあれば tag / release に進まない:
+
+- `VERSION`
+- `package.json` の `.version`
+- `.claude-plugin/plugin.json` の `.version`
+- `.claude-plugin/marketplace.json` の `.metadata.version`
+- `.claude-plugin/marketplace.json` の `.plugins[].version`（配列内の各 plugin entry）
+
+不一致時は、どの surface が canonical と違うか、またはどの field が missing / invalid かを表示する。
+機械処理や CI で読む場合は `--json` を使う:
+
+```bash
+python3 "${HARNESS_PLUGIN_ROOT}/scripts/check-release-version-sync.py" --root . --json
+```
+
+この check は 3 つの事故を防ぐためにある:
 
 - `VERSION` と `.claude-plugin/plugin.json` の version がずれたまま tag を切る事故
+- `package.json` / marketplace entry の version が古いまま release workflow に進む事故
 - plugin manifest / marketplace entry の validation を通さず、あとで plugin install / update 側で詰まる事故
 
 `--dry-run` では `claude plugin tag` が実際に作る tag 名と内部の `git tag -a` / push 相当コマンドが見える。ここで見えた command を Confirmation Gate の plan に含める。
@@ -271,13 +284,8 @@ Proceed? [yes / cancel / <修正指示>]
 `.claude-plugin/plugin.json` がある project では、commit 後にもう一度 version sync を確認してから plugin tag を作る:
 
 ```bash
-[ -f VERSION ] || { echo "Claude plugin tag flow では VERSION が必要です"; exit 1; }
-VERSION_VALUE="$(tr -d '[:space:]' < VERSION)"
-PLUGIN_VERSION="$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')"
-if [ "${VERSION_VALUE}" != "${PLUGIN_VERSION}" ]; then
-  echo "VERSION と .claude-plugin/plugin.json が不一致なら tag に進まない: VERSION=${VERSION_VALUE}, plugin.json=${PLUGIN_VERSION}"
-  exit 1
-fi
+HARNESS_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-.}"
+python3 "${HARNESS_PLUGIN_ROOT}/scripts/check-release-version-sync.py" --root .
 
 claude plugin tag .claude-plugin --dry-run
 claude plugin tag .claude-plugin --push --remote origin
@@ -289,7 +297,7 @@ claude plugin tag .claude-plugin --push --remote origin
 
 Pre-Gate 全てを実行し、Confirmation Gate までの内容を表示するが、**gate で止まり Post-Gate に進まない**。
 
-Claude plugin project の場合、dry-run でも `claude plugin tag .claude-plugin --dry-run` を実行し、実際に作られる plugin tag 名と push 対象を表示する。ここで `VERSION` と `.claude-plugin/plugin.json` が不一致なら、dry-run の時点で止める。
+Claude plugin project の場合、dry-run でも `python3 "${HARNESS_PLUGIN_ROOT}/scripts/check-release-version-sync.py" --root .` と `claude plugin tag .claude-plugin --dry-run` を実行し、実際に作られる plugin tag 名と push 対象を表示する。ここで `VERSION` / `package.json` / `.claude-plugin/plugin.json` / `.claude-plugin/marketplace.json` の version surface が不一致または欠落していれば、dry-run の時点で止める。
 
 ## 環境変数
 

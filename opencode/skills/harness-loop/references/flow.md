@@ -7,7 +7,43 @@ SKILL.md のサマリを補完する実装リファレンス。
 
 ## wake-up 毎のエントリ手順（詳細）
 
-### Step 0: 多重起動防止ロック（冪等性ガード (a)）
+### Step 0: plugin bundle root 解決
+
+`harness-loop` は host project の cwd ではなく、plugin bundle root 配下の helper script を呼ぶ。
+作業対象の `Plans.md` や `.claude/state/...` は host project 側に残し、工具にあたる script だけを plugin bundle から読む。
+
+```bash
+resolve_harness_plugin_root() {
+    if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -d "${CLAUDE_PLUGIN_ROOT}/scripts" ]; then
+        (cd "${CLAUDE_PLUGIN_ROOT}" && pwd -P)
+        return 0
+    fi
+
+    if [ -n "${CLAUDE_SKILL_DIR:-}" ]; then
+        for candidate in "${CLAUDE_SKILL_DIR}/../.." "${CLAUDE_SKILL_DIR}/../../.."; do
+            candidate_abs="$(cd "${candidate}" 2>/dev/null && pwd -P)" || continue
+            if [ -f "${candidate_abs}/.claude-plugin/plugin.json" ] && [ -d "${candidate_abs}/scripts" ]; then
+                printf '%s\n' "${candidate_abs}"
+                return 0
+            fi
+        done
+    fi
+
+    echo "ERROR: cannot resolve Claude Harness plugin root. Set CLAUDE_PLUGIN_ROOT to the installed plugin bundle root." >&2
+    return 1
+}
+
+HARNESS_PLUGIN_ROOT="$(resolve_harness_plugin_root)" || exit 1
+```
+
+- `CLAUDE_PLUGIN_ROOT` が有効なら最優先で使う
+- `CLAUDE_PLUGIN_ROOT` がない場合は `CLAUDE_SKILL_DIR` から配布元を逆算する
+  - `skills/harness-loop` 配布なら `${CLAUDE_SKILL_DIR}/../..`
+  - `.agents/skills/harness-loop` mirror 配布なら `${CLAUDE_SKILL_DIR}/../../..`
+- `scripts/` と `.claude-plugin/plugin.json` がある候補だけを plugin root として扱う
+- host project cwd の `scripts/` は使わない
+
+### Step 0.1: 多重起動防止ロック（冪等性ガード (a)）
 
 ```bash
 LOCK_DIR=".claude/state/locks/loop-session.lock.d"
@@ -53,16 +89,16 @@ trap cleanup_loop_lock EXIT INT TERM
 ```bash
 # wake-up 冒頭で --quick モードの軽量整合性チェックを実行
 # 失敗した場合はループを即停止する（Plans.md 破損・未初期化環境への保護）
-if bash tests/validate-plugin.sh --quick; then
+if bash "${HARNESS_PLUGIN_ROOT}/tests/validate-plugin.sh" --quick; then
     : # OK — 続行
 else
     echo "harness-loop: state 整合性チェック失敗 — ループを停止します" >&2
-    echo "詳細: bash tests/validate-plugin.sh --quick を実行して確認してください" >&2
+    echo "詳細: bash \"${HARNESS_PLUGIN_ROOT}/tests/validate-plugin.sh\" --quick を実行して確認してください" >&2
     exit 1
 fi
 ```
 
-- `tests/validate-plugin.sh --quick` は軽量で数秒以内に完了する
+- `${HARNESS_PLUGIN_ROOT}/tests/validate-plugin.sh --quick` は軽量で数秒以内に完了する
 - チェック内容: `.claude/state/` の存在 / Plans.md の存在+v2フォーマット / sprint-contract の形式
 - フル validate（39 検証項目）は走らせない
 - Plans.md を意図的に破損した状態でこのチェックが失敗すれば、ループは即停止する
@@ -89,19 +125,19 @@ CONTRACT_PATH=".claude/state/contracts/${task_id}.sprint-contract.json"
 
 if [ ! -f "${CONTRACT_PATH}" ]; then
     # contract 未生成 → 生成する
-    node scripts/generate-sprint-contract.js "${task_id}"
+    node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js" "${task_id}"
 
     # Step 2.5: draft → approved に昇格（初回生成時のみ）
     # generate-sprint-contract.js は review.status == "draft" で初期化するため、
     # ensure-sprint-contract-ready.sh（approved 要求）の前に必ず昇格させる
-    bash scripts/enrich-sprint-contract.sh "${CONTRACT_PATH}" \
+    bash "${HARNESS_PLUGIN_ROOT}/scripts/enrich-sprint-contract.sh" "${CONTRACT_PATH}" \
       --check "wake-up 自動承認（harness-loop のため DoD を reviewer 観点で確認）" \
       --approve
 fi
 ```
 
 - `.claude/state/contracts/${task_id}.sprint-contract.json` の有無を確認
-- 存在しない場合は `node scripts/generate-sprint-contract.js ${task_id}` で生成
+- 存在しない場合は `node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js" ${task_id}` で生成
   （※ 41.5.1 で .sh→.js リネーム予定だが、現時点は既存名を node 経由で呼ぶ）
 - **生成直後（初回のみ）**: `enrich-sprint-contract.sh --approve` で `draft` → `approved` に昇格
   - `generate-sprint-contract.js` は `review.status == "draft"` で初期化する
@@ -112,7 +148,7 @@ fi
 ### Step 3: contract readiness チェック
 
 ```bash
-bash scripts/ensure-sprint-contract-ready.sh "${CONTRACT_PATH}"
+bash "${HARNESS_PLUGIN_ROOT}/scripts/ensure-sprint-contract-ready.sh" "${CONTRACT_PATH}"
 ```
 
 - sprint-contract の `review.status == "approved"` を確認
@@ -160,7 +196,7 @@ TRIGGER_HASH="${task_id}:${reason_code}:$(normalize_error_signature "${summary_o
 
 if ! advisor_trigger_seen "${TRIGGER_HASH}"; then
     RESPONSE_FILE=$(
-        bash scripts/run-advisor-consultation.sh \
+        bash "${HARNESS_PLUGIN_ROOT}/scripts/run-advisor-consultation.sh" \
           --request-file ".claude/state/codex-loop/${task_id}.${reason_code}.advisor-request.json" \
           --response-file ".claude/state/codex-loop/${task_id}.${reason_code}.advisor-response.json"
     )
@@ -202,7 +238,7 @@ Worker は `mode: breezing` で動作するため:
 - `worktreePath` に変更内容が格納される
 - Lead（harness-loop）が Step 5.5/5.6 でレビュー → cherry-pick を担当する
 
-> **Codex loop 実装差分**: Codex 版は `scripts/codex-loop.sh` が background task を起動し、
+> **Codex loop 実装差分**: Codex 版は `${HARNESS_PLUGIN_ROOT}/scripts/codex-loop.sh` が background task を起動し、
 > advisor が返した guidance を次回 prompt に prepend して同じ task を再実行する。
 
 > **実装上の注意**: `Bash("harness-work --breezing")` でも代替可能だが、
@@ -228,13 +264,13 @@ WORKER_PATH="${worker_result.worktreePath:-}"
 
 if [ -n "${WORKER_PATH}" ] && [ "${WORKER_PATH}" != "${MAIN_REPO_ROOT}" ]; then
     # Worker の worktree 内で review を実行 → Worker feature branch の実際の差分を見る
-    ( cd "${WORKER_PATH}" && bash scripts/codex-companion.sh review --base "${BASE_REF}" )
+    ( cd "${WORKER_PATH}" && bash "${HARNESS_PLUGIN_ROOT}/scripts/codex-companion.sh" review --base "${BASE_REF}" )
     REVIEW_EXIT=$?
     # review-output.json は Worker worktree dir に作られるので絶対パスで管理する
     REVIEW_OUTPUT_PATH="${WORKER_PATH}/review-output.json"
 else
     # フォールバック: Lead dir で実行（worktree isolation が効かない環境）
-    bash scripts/codex-companion.sh review --base "${BASE_REF}"
+    bash "${HARNESS_PLUGIN_ROOT}/scripts/codex-companion.sh" review --base "${BASE_REF}"
     REVIEW_EXIT=$?
     REVIEW_OUTPUT_PATH="$(pwd)/review-output.json"
 fi
@@ -256,11 +292,11 @@ case "${REVIEWER_PROFILE}" in
         # 重要: run-contract-review-checks.sh の stdout は artifact の「ファイルパス」（JSON payload ではない）
         if [ -n "${WORKER_PATH}" ] && [ "${WORKER_PATH}" != "${MAIN_REPO_ROOT}" ]; then
             RUNTIME_ARTIFACT_PATH=$(
-                cd "${WORKER_PATH}" && bash scripts/run-contract-review-checks.sh "${CONTRACT_PATH}" 2>/dev/null
+                cd "${WORKER_PATH}" && bash "${HARNESS_PLUGIN_ROOT}/scripts/run-contract-review-checks.sh" "${CONTRACT_PATH}" 2>/dev/null
             ) || RUNTIME_ARTIFACT_PATH=""
         else
             RUNTIME_ARTIFACT_PATH=$(
-                bash scripts/run-contract-review-checks.sh "${CONTRACT_PATH}" 2>/dev/null
+                bash "${HARNESS_PLUGIN_ROOT}/scripts/run-contract-review-checks.sh" "${CONTRACT_PATH}" 2>/dev/null
             ) || RUNTIME_ARTIFACT_PATH=""
         fi
 
@@ -304,7 +340,7 @@ case "${REVIEWER_PROFILE}" in
         # browser reviewer が後続で使う artifact を生成
         # browser artifact は PENDING_BROWSER scaffold。実際の browser 実行は reviewer agent が担当。
         # review-result の verdict は static のまま（PENDING_BROWSER ではない）。
-        bash scripts/generate-browser-review-artifact.sh "${CONTRACT_PATH}" 2>/dev/null || true
+        bash "${HARNESS_PLUGIN_ROOT}/scripts/generate-browser-review-artifact.sh" "${CONTRACT_PATH}" 2>/dev/null || true
         EFFECTIVE_VERDICT=""  # → REVIEW_OUTPUT_PATH から読む（static verdict を使用）
         REVIEW_RESULT_INPUT="${REVIEW_OUTPUT_PATH}"
         ;;
@@ -327,7 +363,7 @@ fi
 # review-result を正規化して保存
 # REVIEW_RESULT_INPUT は runtime REQUEST_CHANGES 時は runtime artifact パス、それ以外は REVIEW_OUTPUT_PATH
 # これにより runtime REQUEST_CHANGES が pretooluse-guard まで正しく伝わる（指摘 4 対応）
-bash scripts/write-review-result.sh "${REVIEW_RESULT_INPUT}" "${worker_result.commit}"
+bash "${HARNESS_PLUGIN_ROOT}/scripts/write-review-result.sh" "${REVIEW_RESULT_INPUT}" "${worker_result.commit}"
 ```
 
 **verdict 判定**:
@@ -411,7 +447,7 @@ HASH=$(git rev-parse --short HEAD)
 ### Step 6: plateau 判定
 
 ```bash
-bash scripts/detect-review-plateau.sh ${current_task_id}
+bash "${HARNESS_PLUGIN_ROOT}/scripts/detect-review-plateau.sh" ${current_task_id}
 PLATEAU_EXIT=$?
 # ※ current_task_id は Step 1 で特定した task_id
 ```

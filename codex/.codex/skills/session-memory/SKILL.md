@@ -62,7 +62,9 @@ disable-model-invocation: true
 
 ### session-log.md
 
-各セッション記録には `${CLAUDE_SESSION_ID}` 環境変数を活用してセッションIDを付与します。
+各セッション記録には、実行環境から取得できるセッションIDを付与します。
+Claude Code では `${CLAUDE_SESSION_ID}` を優先し、Codex では Codex runtime が渡す session / thread ID を優先します。
+どちらも取得できない場合は `.claude/state/session.json` の `.session_id` を読み、最後の fallback として日時ベースのIDを生成します。
 これにより、セッション間のトレーサビリティが向上します。
 
 ```markdown
@@ -85,7 +87,7 @@ disable-model-invocation: true
 ```
 
 > **Note**: `${CLAUDE_SESSION_ID}` は Claude Code が自動設定する環境変数です。
-> セッションごとに一意のIDが割り当てられ、ログの追跡や問題調査に役立ちます。
+> Codex 側ではこの変数が存在しない場合があるため、固定前提にせず、Codex runtime の session / thread ID または `.claude/state/session.json` を使います。
 
 ### decisions.md
 

@@ -83,12 +83,12 @@ harness codex-loop stop
 
 ## どう動くか
 
-1. `.claude/state/codex-loop/` に実行状態を書き出す
+1. project root の `.claude/state/codex-loop/` に Harness loop の実行状態を書き出す
 2. 受け取った selection を Plans.md から正規化する
 3. Plans.md から Depends が満たされた `cc:TODO` / `cc:WIP` を集め、ready batch を作る
 4. `--max-workers` で ready batch の同時実行数を制限する
 5. 既定では Breezing executor が ready batch を Lead / Worker / Reviewer 分離で実行する
-6. `--executor task` の時だけ、互換用 local worker が 1 task per cycle で `codex exec` を起動する（`CODEX_LOOP_TASK_DRIVER=companion` の時だけ `scripts/codex-companion.sh task --background --write ...` を使う）
+6. `--executor task` の時だけ、互換用 local worker が 1 task per cycle で `codex exec` を起動する（`CODEX_LOOP_TASK_DRIVER=companion` の時だけ `bash "${HARNESS_PLUGIN_ROOT}/scripts/codex-companion.sh" task --background --write ...` を使う）
 7. 高リスク task / 2 回目失敗 / plateau 直前では advisor consult を挟む
 8. ready batch 完了後に review / checkpoint / plateau 判定を行う
 9. まだ対象タスクが残っていれば、待機後に次サイクルへ進む
@@ -122,7 +122,7 @@ Codex `0.123.0` 以降の background agent は realtime handoff で transcript d
 - default は「1 ready batch cycle につき最終報告 1 回」。
 - Breezing の task-level progress feed は、batch 内の完了数が動いた時だけ出す。
 - 長い cycle でも、material state change がない限り heartbeat は出さない。
-- 詳細な流れは `harness codex-loop status --json` と `.claude/state/codex-loop/runner.log` に寄せ、会話側には要点だけ出す。
+- 詳細な流れは `harness codex-loop status --json` と project root の `.claude/state/codex-loop/runner.log` に寄せ、会話側には要点だけ出す。
 
 Advisor / Reviewer drift との関係:
 
@@ -139,7 +139,20 @@ Advisor / Reviewer drift との関係:
 | `plateau` | 行き詰まり気味の再試行 | 1200 |
 | `night` | 長めの放置実行 | 3600 |
 
+## State Path Policy
+
+Codex 版 `harness-loop` は、Codex native の会話・実行キャッシュと、Harness が共有する project state を分けて扱う。
+
+- **Harness 共通 state**: project root の `.claude/state/` 配下に置く。Claude 側の advisor / review / checkpoint と共有するため、`harness codex-loop status` もここを読む。
+- **Codex loop runner state**: project root の `.claude/state/codex-loop/` 配下に置く。これは「Codex 全体の正本」ではなく、Harness loop runner の job / cycle / log 用 state。
+- **Codex native state**: `${CODEX_HOME:-~/.codex}` 配下に残る Codex 自身の thread / transcript / cache。Harness loop の task status、advisor history、review result の正本にはしない。
+- **禁止**: `.Codex/` や `~/.Codex` を正本 path として案内しない。大文字 `Codex` ディレクトリは historical drift と見なす。
+
+つまり、`.claude/state/codex-loop/` は「この project の Harness loop state」であり、Codex native state 全体の固定保存先ではない。
+
 ## 状態ファイル
+
+以下はすべて project root 基準。
 
 - `.claude/state/codex-loop/run.json`
 - `.claude/state/codex-loop/cycles.jsonl`

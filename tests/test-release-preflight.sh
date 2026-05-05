@@ -249,6 +249,78 @@ test_preflight_pass_and_fail() {
   assert_contains "$schema_failure_output" "review.max_iterations must be an integer between 1 and 30"
 }
 
+test_preflight_checks_plugin_version_sync() {
+  local repo="$TMP_DIR/release-preflight-plugin"
+  setup_repo "$repo" valid
+
+  printf '1.2.3\n' > "$repo/VERSION"
+  cat > "$repo/package.json" <<'EOF'
+{
+  "name": "release-preflight-plugin-fixture",
+  "version": "1.2.3",
+  "private": true,
+  "scripts": {
+    "healthcheck": "node -e \"process.exit(0)\""
+  }
+}
+EOF
+  mkdir -p "$repo/.claude-plugin"
+  cat > "$repo/.claude-plugin/plugin.json" <<'EOF'
+{
+  "name": "release-preflight-plugin-fixture",
+  "version": "1.2.3"
+}
+EOF
+  cat > "$repo/.claude-plugin/marketplace.json" <<'EOF'
+{
+  "name": "release-preflight-plugin-marketplace",
+  "metadata": {
+    "version": "1.2.3"
+  },
+  "plugins": [
+    {
+      "name": "release-preflight-plugin-fixture",
+      "version": "1.2.3"
+    }
+  ]
+}
+EOF
+  git -C "$repo" add .
+  git -C "$repo" commit -qm "add plugin metadata"
+
+  local success_output="$TMP_DIR/plugin-version-success.txt"
+  HARNESS_RELEASE_PROJECT_ROOT="$repo" \
+  HARNESS_RELEASE_HEALTHCHECK_CMD='true' \
+  HARNESS_RELEASE_CI_STATUS_CMD='true' \
+    "$PROJECT_ROOT/scripts/release-preflight.sh" >"$success_output"
+
+  assert_contains "$success_output" "\\[PASS\\] release version sync"
+
+  python3 - "$repo/.claude-plugin/marketplace.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text(encoding="utf-8"))
+data["metadata"]["version"] = "1.2.2"
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+  git -C "$repo" add .claude-plugin/marketplace.json
+  git -C "$repo" commit -qm "drift marketplace version"
+
+  local failure_output="$TMP_DIR/plugin-version-failure.txt"
+  if HARNESS_RELEASE_PROJECT_ROOT="$repo" \
+    HARNESS_RELEASE_HEALTHCHECK_CMD='true' \
+    HARNESS_RELEASE_CI_STATUS_CMD='true' \
+      "$PROJECT_ROOT/scripts/release-preflight.sh" >"$failure_output" 2>&1; then
+    fail "preflight should fail on plugin marketplace version mismatch"
+  fi
+
+  assert_contains "$failure_output" "\\[FAIL\\] release version sync"
+  assert_contains "$failure_output" "MISMATCH .claude-plugin/marketplace.json metadata.version"
+}
+
 test_preflight_warns_when_env_is_managed_elsewhere() {
   local repo="$TMP_DIR/release-preflight-managed-secrets"
   setup_repo "$repo" valid
@@ -271,6 +343,7 @@ test_preflight_warns_when_env_is_managed_elsewhere() {
 test_skill_mentions_preflight
 test_doc_mentions_overrides
 test_preflight_pass_and_fail
+test_preflight_checks_plugin_version_sync
 test_preflight_warns_when_env_is_managed_elsewhere
 
 echo "test-release-preflight: ok"

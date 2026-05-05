@@ -116,6 +116,60 @@ Harness がしないこと:
 - `dependencies` を独自解釈して cache を直接書き換えない。
 - `blockedMarketplaces` / `strictKnownMarketplaces` を迂回する resolver を作らない。
 
+## Plugin prune
+
+`claude plugin prune` は、不要になった自動インストール dependency plugin を削除する cleanup command です。
+Claude Code が別 plugin の `dependencies` を満たすために入れた plugin が対象であり、ユーザーが直接入れた plugin を勝手に消す用途ではありません。
+
+Harness の方針:
+
+- plugin uninstall 後の cleanup 案内として使う。
+- まず `claude plugin prune --dry-run` を案内する。
+- 非対話 CI で実行する場合だけ `-y` を使う。
+- release / setup の中で無条件に実行しない。
+- `${CLAUDE_PLUGIN_DATA}` に残すべき state がある場合は、uninstall 側の `--keep-data` を検討する。
+
+推奨例:
+
+```bash
+claude plugin prune --dry-run
+claude plugin prune -y
+```
+
+## Project purge
+
+`claude project purge [path]` は、Claude Code が project に持つ transcripts、tasks、file history、config entry を削除する強い cleanup command です。
+
+Harness の方針:
+
+- archive、handoff、path / owner 変更など、local Claude state を消す理由が明確な時だけ案内する。
+- まず `--dry-run` または `--interactive` を使う。
+- 進行中の task、review evidence、handoff 証跡が必要な時は使わない。
+- Harness の `Plans.md` や git 履歴の代替 cleanup として扱わない。
+
+推奨例:
+
+```bash
+claude project purge . --dry-run
+claude project purge . --interactive
+```
+
+## Plugin-bundled hooks
+
+Plugin に hooks を同梱できるが、Harness では「plugin を入れただけで強い副作用が走る」設計を避ける。
+
+Harness の方針:
+
+- bundled hooks は opt-in を基本にする。
+- 書き込み、push、deploy、外部送信、tool output 改変は既定無効にする。
+- `PostToolUse.hookSpecificOutput.updatedToolOutput` を使う場合は `docs/output-governance.md` に従う。
+- hook の stdout は JSON contract を守り、人間向けログは stderr に出す。
+
+理由:
+
+plugin は信頼境界に近い。
+ユーザーが有効化しただけで project の挙動が大きく変わると、原因追跡と安全確認が難しくなる。
+
 ## Themes decision
 
 Claude Code `2.1.118` では `/theme` で named custom themes を作成・切替でき、plugin が `themes/` directory を同梱できるようになりました。

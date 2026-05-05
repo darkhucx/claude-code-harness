@@ -49,7 +49,8 @@ VALID_TOOLS='[
   "Task", "WebFetch", "WebSearch", "TodoWrite",
   "AskUserQuestion", "Skill", "EnterPlanMode", "ExitPlanMode",
   "NotebookEdit", "LSP", "MCPSearch", "Append",
-  "Monitor", "ScheduleWakeup", "Agent"
+  "Monitor", "ScheduleWakeup", "Agent",
+  "spawn_agent", "send_input", "wait_agent", "close_agent"
 ]'
 
 jq -e --argjson valid "${VALID_TOOLS}" '

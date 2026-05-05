@@ -211,6 +211,7 @@ echo "Auto-detected review type: ${REVIEW_TYPE}"
 | `/harness-review --security` | Security Review | OWASP Top 10 専用セキュリティレビュー（read-only） |
 | `/harness-review --ui-rubric` | UI Rubric Review | デザイン品質の 4 軸採点レビュー |
 | `/ultrareview` | built-in slash | CC ネイティブのアドホックレビュー。**Harness flow 内では呼ばない**（後述参照） |
+| `claude ultrareview [target] --json` | CLI | CI / script からの second-opinion 用。`/harness-review` の代替ではない |
 
 ## PR host boundary
 
@@ -605,7 +606,18 @@ Harness の自動レビューフローは `/ultrareview` を**呼び出さない
 - `/ultrareview` を Harness 内部で呼ぶと `review-result.v1` の機械可読保証が失われる
 
 ユーザーがアドホックなレビューに `/ultrareview` を使う場合、Harness は干渉しない。
-詳細な差分・使い分けガイドは [`docs/ultrareview-policy.md`](../../docs/ultrareview-policy.md) を参照。
+`claude ultrareview [target] --json` は CI / script から同じアドホックレビューを機械的に呼ぶための
+second-opinion 入口であり、`/harness-review` の Plans.md 連動、修正ループ、`review-result.v1` 契約を置き換えない。
+詳細な差分・使い分けガイドは plugin root の `docs/ultrareview-policy.md`
+（`${CLAUDE_PLUGIN_ROOT}/docs/ultrareview-policy.md`）を参照。
+
+## Hook output governance
+
+Review / test evidence を扱う hook は `PostToolUse.hookSpecificOutput.updatedToolOutput` を既定では使わない。
+tool output の redaction / compaction / normalization が必要な場合だけ opt-in し、
+元出力または復元可能な audit trail を残す。
+`pytest` / `vitest` / `go test` / review finding の失敗根拠、file:line、exit code を消してはいけない。
+詳細は plugin root の `docs/output-governance.md` を参照。
 
 ## 関連スキル
 

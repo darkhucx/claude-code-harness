@@ -35,6 +35,19 @@ Harness の統合セットアップスキル。
 > `/init` のような built-in slash command も発見される。
 > Harness 固有の bootstrap が必要な時だけ `/harness-setup init` と使い分ける。
 
+> **Claude Code setup guidance (CC 2.1.120+)**:
+> MCP `alwaysLoad`、`${CLAUDE_EFFORT}`、`claude plugin prune`、`claude project purge`、
+> `ANTHROPIC_BEDROCK_SERVICE_TIER`、`claude_code.skill_activated.invocation_trigger`、
+> Windows PowerShell primary shell、forked skills / subagents の deferred tools は
+> `docs/claude-code-setup-mcp-telemetry-provider.md` を正本として扱う。
+
+> **Codex plugin workflows**:
+> Codex `/goal` と `Plans.md` を二重管理しない。
+> plugin-bundled hooks は opt-in、external agent import は ownership 明記、
+> MultiAgentV2 / `agents.max_threads = 8` は上限として扱い、
+> sticky environments / app-server artifacts は safe default を優先する。
+> 詳細は `docs/codex-plugin-workflows-policy.md` を参照。
+
 ## サブコマンド詳細
 
 ### init — プロジェクト初期化
@@ -161,6 +174,11 @@ model_provider = "amazon-bedrock"
 [model_providers.amazon-bedrock.aws]
 profile = "codex-bedrock"
 ```
+
+Claude Code 側の provider / MCP / telemetry guidance は
+`docs/claude-code-setup-mcp-telemetry-provider.md` を参照する。
+特に `ANTHROPIC_BEDROCK_SERVICE_TIER` は Bedrock 利用者の provider 環境だけで扱い、
+Harness の plugin default / template / shared project settings には入れない。
 
 ### Codex MCP diagnostics / plugin loading (0.123.0+)
 

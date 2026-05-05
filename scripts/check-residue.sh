@@ -86,27 +86,43 @@ def is_allowlisted(filepath: str, allowlist: list) -> bool:
 # ─── grep 実行ユーティリティ ─────────────────────────────────────────────────
 def grep_files(term: str, repo_root: str) -> list:
     """
-    term を固定文字列として repo_root 以下を grep -rln -F で検索。
+    term を固定文字列として tracked files から検索。
     ヒットしたファイルの相対パスリストを返す。
     """
     try:
         result = subprocess.run(
-            ["grep", "-rln", "-F",
-             "--exclude-dir=.git",
-             "--exclude-dir=.agents",
-             term, "."],
+            ["git", "grep", "-l", "-F", "--", term, "."],
             cwd=repo_root,
             capture_output=True,
             text=True,
         )
-        if result.returncode not in (0, 1):
-            # grep のエラー（returncode=2）は無視
-            return []
-        files = [f.strip() for f in result.stdout.splitlines() if f.strip()]
-        return files
+        if result.returncode in (0, 1):
+            return [f.strip() for f in result.stdout.splitlines() if f.strip()]
+    except Exception:
+        pass
+
+    # Fallback for non-git checkouts. Keep the same exclusions as the legacy
+    # scanner, but the normal repo path above should avoid ignored/local bulk.
+    try:
+        result = subprocess.run(
+            [
+                "grep",
+                "-rln",
+                "-F",
+                "--exclude-dir=.git",
+                "--exclude-dir=.agents",
+                term,
+                ".",
+            ],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode in (0, 1):
+            return [f.strip() for f in result.stdout.splitlines() if f.strip()]
     except Exception as e:
         print(f"  WARNING: grep 実行エラー: {e}", file=sys.stderr)
-        return []
+    return []
 
 def grep_line_numbers(term: str, filepath: str, repo_root: str) -> list:
     """
@@ -115,15 +131,22 @@ def grep_line_numbers(term: str, filepath: str, repo_root: str) -> list:
     """
     try:
         result = subprocess.run(
-            ["grep", "-n", "-F", term, filepath],
+            ["git", "grep", "-n", "-F", "--", term, filepath],
             cwd=repo_root,
             capture_output=True,
             text=True,
         )
+        if result.returncode not in (0, 1):
+            result = subprocess.run(
+                ["grep", "-n", "-F", term, filepath],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+            )
         lines = []
         for line in result.stdout.splitlines():
-            # 形式: "27:    grep 'core/src/guardrails/rules.ts'"
-            m = re.match(r"^(\d+):(.*)$", line)
+            # git grep: "path:27:content"; grep: "27:content"
+            m = re.match(r"^(?:(?:[^:]+):)?(\d+):(.*)$", line)
             if m:
                 lines.append((int(m.group(1)), m.group(2).strip()))
         return lines
@@ -138,20 +161,50 @@ def grep_h1_v3_files(repo_root: str) -> list:
     """
     try:
         result = subprocess.run(
-            ["grep", "-rln", "--include=*.md",
-             "--exclude-dir=.git",
-             "--exclude-dir=.agents",
-             r"^# .*(v3)", "."],
+            [
+                "git",
+                "grep",
+                "-l",
+                "-E",
+                r"^# .*(v3)",
+                "--",
+                "skills/*/SKILL.md",
+                "codex/.codex/skills/*/SKILL.md",
+                "opencode/skills/*/SKILL.md",
+                "agents/*.md",
+            ],
             cwd=repo_root,
             capture_output=True,
             text=True,
         )
-        if result.returncode not in (0, 1):
-            return []
-        files = [f.strip() for f in result.stdout.splitlines() if f.strip()]
-        return files
+        if result.returncode in (0, 1):
+            return [f.strip() for f in result.stdout.splitlines() if f.strip()]
     except Exception:
-        return []
+        pass
+
+    try:
+        result = subprocess.run(
+            [
+                "grep",
+                "-rln",
+                "--include=*.md",
+                "--exclude-dir=.git",
+                "--exclude-dir=.agents",
+                r"^# .*(v3)",
+                "skills",
+                "codex/.codex/skills",
+                "opencode/skills",
+                "agents",
+            ],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode in (0, 1):
+            return [f.strip() for f in result.stdout.splitlines() if f.strip()]
+    except Exception:
+        pass
+    return []
 
 # ─── スキャン実行 ─────────────────────────────────────────────────────────────
 violations = 0

@@ -302,8 +302,12 @@ grep -q 'claude plugin tag .claude-plugin --push --remote origin' "${HARNESS_REL
   echo "harness-release is missing claude plugin tag push guidance"
   exit 1
 }
-grep -q 'VERSION と .claude-plugin/plugin.json が不一致なら tag に進まない' "${HARNESS_RELEASE_SKILL}" || {
-  echo "harness-release must stop before tagging when VERSION and plugin.json disagree"
+grep -q 'check-release-version-sync.py' "${HARNESS_RELEASE_SKILL}" || {
+  echo "harness-release must run structured release version sync before tagging"
+  exit 1
+}
+grep -q '.claude-plugin/marketplace.json' "${HARNESS_RELEASE_SKILL}" || {
+  echo "harness-release must include marketplace version surfaces in tag preflight"
   exit 1
 }
 grep -q '53.1.3 plugin tag release flow decision' "${PHASE53_SNAPSHOT_DOC}" || {
@@ -971,6 +975,21 @@ PHASE58_CODEX_POLICY_DOC="${ROOT_DIR}/docs/codex-permission-profiles-policy.md"
   echo "${PHASE58_CODEX_POLICY_DOC} does not exist"
   exit 1
 }
+PHASE58_OUTPUT_GOVERNANCE_DOC="${ROOT_DIR}/docs/output-governance.md"
+[ -f "${PHASE58_OUTPUT_GOVERNANCE_DOC}" ] || {
+  echo "${PHASE58_OUTPUT_GOVERNANCE_DOC} does not exist"
+  exit 1
+}
+PHASE58_CLAUDE_SETUP_DOC="${ROOT_DIR}/docs/claude-code-setup-mcp-telemetry-provider.md"
+[ -f "${PHASE58_CLAUDE_SETUP_DOC}" ] || {
+  echo "${PHASE58_CLAUDE_SETUP_DOC} does not exist"
+  exit 1
+}
+PHASE58_CODEX_PLUGIN_DOC="${ROOT_DIR}/docs/codex-plugin-workflows-policy.md"
+[ -f "${PHASE58_CODEX_PLUGIN_DOC}" ] || {
+  echo "${PHASE58_CODEX_PLUGIN_DOC} does not exist"
+  exit 1
+}
 for referencing_file in \
   "${ROOT_DIR}/CHANGELOG.md" \
   "${ROOT_DIR}/docs/CLAUDE-feature-table.md" \
@@ -1072,6 +1091,42 @@ grep -q 'allowManagedReadPathsOnly' "${ROOT_DIR}/scripts/ci/check-consistency.sh
   echo "Consistency check must protect allowManagedReadPathsOnly from normal defaults"
   exit 1
 }
+grep -q 'PostToolUse.hookSpecificOutput.updatedToolOutput' "${PHASE58_OUTPUT_GOVERNANCE_DOC}" || {
+  echo "Output governance doc must name updatedToolOutput"
+  exit 1
+}
+grep -q '既定では `updatedToolOutput` を使わない' "${PHASE58_OUTPUT_GOVERNANCE_DOC}" || {
+  echo "Output governance doc must keep no-default-mutation policy"
+  exit 1
+}
+grep -q 'review / test evidence を削除しない' "${PHASE58_OUTPUT_GOVERNANCE_DOC}" || {
+  echo "Output governance doc must protect review/test evidence"
+  exit 1
+}
+grep -q 'stdout は JSON だけ' "${PHASE58_OUTPUT_GOVERNANCE_DOC}" || {
+  echo "Output governance doc must preserve JSON stdout contract"
+  exit 1
+}
+for setup_term in 'CLAUDE_EFFORT' 'alwaysLoad' 'claude plugin prune' 'claude project purge' 'ANTHROPIC_BEDROCK_SERVICE_TIER' 'claude_code.skill_activated.invocation_trigger' 'PowerShell primary shell' 'deferred tools'; do
+  grep -q "${setup_term}" "${PHASE58_CLAUDE_SETUP_DOC}" || {
+    echo "Claude setup doc is missing ${setup_term}"
+    exit 1
+  }
+done
+grep -q 'claude ultrareview \[target\] --json' "${ROOT_DIR}/docs/ultrareview-policy.md" || {
+  echo "ultrareview policy must document the CLI --json boundary"
+  exit 1
+}
+grep -q 'CI / script からの second-opinion' "${ROOT_DIR}/skills/harness-review/SKILL.md" || {
+  echo "harness-review skill must keep ultrareview --json as second-opinion only"
+  exit 1
+}
+for codex_term in 'Plans.md` はチームのホワイトボード' 'plugin-bundled hooks' 'External agent import ownership' 'agents.max_threads = 8' 'Sticky environment' 'one primary environment'; do
+  grep -q "${codex_term}" "${PHASE58_CODEX_PLUGIN_DOC}" || {
+    echo "Codex plugin workflow doc is missing ${codex_term}"
+    exit 1
+  }
+done
 grep -q 'Phase 58 Claude Code 2.1.120-2.1.126 / Codex 0.125.0-0.128.0 snapshot' "${ROOT_DIR}/docs/CLAUDE-feature-table.md" || {
   echo "Feature Table must include the Phase 58 upstream snapshot row"
   exit 1

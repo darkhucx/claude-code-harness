@@ -137,6 +137,30 @@ check_changelog() {
   fi
 }
 
+check_release_version_sync() {
+  if [ ! -f ".claude-plugin/plugin.json" ] && [ ! -f ".claude-plugin/marketplace.json" ]; then
+    warn "release version sync skipped (not a Claude plugin project)"
+    return
+  fi
+
+  local helper="${SCRIPT_DIR}/check-release-version-sync.py"
+  if [ ! -f "$helper" ]; then
+    fail "release version sync helper"
+    printf '  missing: %s\n' "$helper"
+    return
+  fi
+
+  local output_file
+  output_file="$(mktemp)"
+  if python3 "$helper" --root "$PROJECT_ROOT" >"$output_file" 2>&1; then
+    pass "release version sync"
+  else
+    fail "release version sync"
+    sed 's/^/  /' "$output_file"
+  fi
+  rm -f "$output_file"
+}
+
 check_env_and_healthcheck() {
   local env_ok=1
 
@@ -404,6 +428,7 @@ echo "----------------------------------------"
 
 check_git_clean
 check_changelog
+check_release_version_sync
 check_env_and_healthcheck
 check_runtime_residuals
 check_sprint_contract_schema

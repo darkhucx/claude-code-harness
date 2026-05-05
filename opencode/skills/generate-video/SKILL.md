@@ -1,8 +1,8 @@
 ---
 name: generate-video
-description: "Auto-generate product demo videos. A picture worth thousand words, embodied. Use when user mentions '/generate-video', video generation, product demos, or visual documentation. Do NOT load for: embedding video players, live demos, video playback features. Requires Remotion setup."
-description-en: "Auto-generate product demo videos. A picture worth thousand words, embodied. Use when user mentions '/generate-video', video generation, product demos, or visual documentation. Do NOT load for: embedding video players, live demos, video playback features. Requires Remotion setup."
-description-ja: "プロダクトデモ動画を自動生成。百聞は一見にしかず、を体現。Use when user mentions '/generate-video', video generation, product demos, or visual documentation. Do NOT load for: embedding video players, live demos, video playback features. Requires Remotion setup."
+description: "Auto-generate product demo videos. Internal/manual workflow only; use from an explicit /generate-video command or a parent media workflow. Requires Remotion setup."
+description-en: "Auto-generate product demo videos. Internal/manual workflow only; use from an explicit /generate-video command or a parent media workflow. Requires Remotion setup."
+description-ja: "プロダクトデモ動画を自動生成。明示的な /generate-video または親メディアワークフローからのみ使う。通常発話からの自動起動はしない。Remotion セットアップが必要。"
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task", "AskUserQuestion", "WebFetch"]
 disable-model-invocation: true
 user-invocable: false
@@ -13,6 +13,16 @@ context: fork
 # Generate Video Skill
 
 プロダクト説明動画の自動生成を担当するスキル群です。
+
+## 起動契約
+
+このスキルは `user-invocable: false` かつ `disable-model-invocation: true` です。
+通常のユーザー発話（例: 「動画を作って」）で Claude が自動選択する前提にはしません。
+
+- 明示的な `/generate-video` コマンド、または親メディアワークフローから内部的に起動される時だけ使います。
+- `allowed-tools` は Claude Code 用です。Claude ではユーザー確認に `AskUserQuestion` を使えます。
+- Codex mirror では同等の確認は `request_user_input` 相当の計画モード入力に読み替えます。通常実行でそのツールがない場合は、既定値を提示して停止せず進め、重要な未確定事項だけユーザーへ確認します。
+- `disable-model-invocation: true` は「説明文だけを見てモデルが勝手に起動しない」という意味です。slash や親 workflow から明示起動された場合は本文手順に従います。
 
 ---
 

@@ -1,9 +1,9 @@
 #!/bin/bash
-# sync-version.sh - release metadata の VERSION / plugin.json を同期
+# sync-version.sh - release metadata の VERSION / plugin.json / marketplace.json を同期
 #
 # 使い方:
 #   ./scripts/sync-version.sh check    # 不一致をチェック
-#   ./scripts/sync-version.sh sync     # plugin.json を VERSION に合わせる
+#   ./scripts/sync-version.sh sync     # release metadata を VERSION に合わせる
 #   ./scripts/sync-version.sh bump             # release 用に patch version を上げる
 #   ./scripts/sync-version.sh bump minor       # minor version を上げる
 #   ./scripts/sync-version.sh bump major       # major version を上げる
@@ -11,8 +11,11 @@
 set -euo pipefail
 
 VERSION_FILE="VERSION"
+PACKAGE_JSON="package.json"
 PLUGIN_JSON=".claude-plugin/plugin.json"
+MARKETPLACE_JSON=".claude-plugin/marketplace.json"
 HARNESS_TOML="harness.toml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 現在のバージョンを取得
 get_version() {
@@ -29,6 +32,11 @@ get_toml_version() {
 
 # バージョン不一致チェック
 check_version() {
+    if [ -f "$SCRIPT_DIR/check-release-version-sync.py" ]; then
+        python3 "$SCRIPT_DIR/check-release-version-sync.py" --root "."
+        return $?
+    fi
+
     local v1=$(get_version)
     local v2=$(get_plugin_version)
     local v3=""
@@ -57,19 +65,100 @@ check_version() {
     return 1
 }
 
-# plugin.json + harness.toml を VERSION に同期
-sync_version() {
-    local version=$(get_version)
-    local current=$(get_plugin_version)
+# JSON ファイルの top-level version を VERSION に同期
+sync_top_level_json_version() {
+    local file="$1"
+    local label="$2"
+    local version="$3"
+
+    [ -f "$file" ] || return 0
+
+    local current
+    current="$(python3 - "$file" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as fh:
+    data = json.load(fh)
+value = data.get("version", "")
+print(value if isinstance(value, str) else "")
+PY
+)"
 
     if [ "$version" != "$current" ]; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/\"version\": \"$current\"/\"version\": \"$version\"/" "$PLUGIN_JSON"
-        else
-            sed -i "s/\"version\": \"$current\"/\"version\": \"$version\"/" "$PLUGIN_JSON"
-        fi
-        echo "✅ plugin.json を更新: $current → $version"
+        python3 - "$file" "$version" <<'PY'
+import json
+import sys
+
+path, version = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as fh:
+    data = json.load(fh)
+data["version"] = version
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, ensure_ascii=False, indent=2)
+    fh.write("\n")
+PY
+        echo "✅ ${label} を更新: ${current:-未設定} → $version"
     fi
+}
+
+# marketplace.json の metadata.version / plugins[].version を VERSION に同期
+sync_marketplace_version() {
+    local file="$1"
+    local version="$2"
+
+    [ -f "$file" ] || return 0
+
+    python3 - "$file" "$version" <<'PY'
+import json
+import sys
+
+path, version = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as fh:
+    data = json.load(fh)
+
+changes = []
+metadata = data.setdefault("metadata", {})
+if not isinstance(metadata, dict):
+    raise SystemExit(f"{path}: metadata must be an object")
+old_metadata = metadata.get("version")
+if old_metadata != version:
+    metadata["version"] = version
+    changes.append(f"metadata.version: {old_metadata or '未設定'} → {version}")
+
+plugins = data.get("plugins")
+if plugins is None:
+    plugins = []
+    data["plugins"] = plugins
+if not isinstance(plugins, list):
+    raise SystemExit(f"{path}: plugins must be an array")
+
+for index, plugin in enumerate(plugins):
+    if not isinstance(plugin, dict):
+        raise SystemExit(f"{path}: plugins[{index}] must be an object")
+    old_plugin = plugin.get("version")
+    if old_plugin != version:
+        plugin["version"] = version
+        name = plugin.get("name") if isinstance(plugin.get("name"), str) else f"#{index}"
+        changes.append(f"plugins[{index}]({name}).version: {old_plugin or '未設定'} → {version}")
+
+if changes:
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    for change in changes:
+        print(f"✅ marketplace.json を更新: {change}")
+PY
+}
+
+# package.json / plugin.json / marketplace.json + harness.toml を VERSION に同期
+sync_version() {
+    local version=$(get_version)
+
+    sync_top_level_json_version "$PACKAGE_JSON" "package.json" "$version"
+    sync_top_level_json_version "$PLUGIN_JSON" "plugin.json" "$version"
+    sync_marketplace_version "$MARKETPLACE_JSON" "$version"
 
     # harness.toml の同期
     if [ -f "$HARNESS_TOML" ]; then

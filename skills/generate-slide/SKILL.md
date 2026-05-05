@@ -1,8 +1,8 @@
 ---
 name: generate-slide
-description: "Generate project intro slides with Nano Banana Pro. Use when user mentions slide, project slide, 1-page summary, or visual introduction."
-description-ja: "Nano Banana Proでプロジェクト紹介スライドを自動生成。スライド、1枚紹介、ビジュアル紹介で起動。動画生成やデッキ作成では起動しない。"
-description-en: "Generate project intro slides with Nano Banana Pro. Use when user mentions slide, project slide, 1-page summary, or visual introduction."
+description: "Generate project intro slides with Nano Banana Pro. Internal/manual workflow only; use from an explicit /generate-slide command or a parent media workflow."
+description-ja: "Nano Banana Proでプロジェクト紹介スライドを自動生成。明示的な /generate-slide または親メディアワークフローからのみ使う。通常発話からの自動起動はしない。"
+description-en: "Generate project intro slides with Nano Banana Pro. Internal/manual workflow only; use from an explicit /generate-slide command or a parent media workflow."
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"]
 disable-model-invocation: true
 user-invocable: false
@@ -12,6 +12,16 @@ argument-hint: "[project-path|description]"
 # Generate Slide Skill
 
 プロジェクトの内容を紹介・説明する1枚スライド画像を、Nano Banana Pro（Gemini 3 Pro Image Preview）API で自動生成します。
+
+## 起動契約
+
+このスキルは `user-invocable: false` かつ `disable-model-invocation: true` です。
+通常のユーザー発話（例: 「スライド作って」）から Claude が自動選択する前提ではありません。
+
+- 明示的な `/generate-slide` コマンド、または親メディアワークフローから内部的に起動される時だけ使います。
+- `allowed-tools` は Claude Code 用です。Claude ではユーザー確認に `AskUserQuestion` を使えます。
+- Codex mirror では同等の確認は `request_user_input` 相当の計画モード入力に読み替えます。通常実行でそのツールがない場合は、既定値を提示して停止せず進め、重要な未確定事項だけユーザーへ確認します。
+- `disable-model-invocation: true` は「説明文だけを見てモデルが勝手に起動しない」という意味です。slash や親 workflow から明示起動された場合は本文手順に従います。
 
 ---
 

@@ -3,6 +3,15 @@ name: breezing
 description: "Team execution mode (Codex native) — backward-compatible alias for harness-work with team orchestration using Codex native subagent API."
 description-en: "Team execution mode (Codex native) — backward-compatible alias for harness-work with team orchestration using Codex native subagent API."
 description-ja: "チーム実行モード（Codex ネイティブ版）— harness-work のチーム協調エイリアス。breezing, チーム実行, 全部やって でトリガー。"
+kind: workflow
+purpose: "Wrap harness-work with Codex-native team execution orchestration"
+trigger: "breezing, team execution, do everything"
+shape: wrap
+role: orchestrator
+base: harness-work
+pair: harness-review
+owner: harness-core
+since: "2026-05-05"
 allowed-tools: ["Read", "Bash", "spawn_agent", "send_input", "wait_agent", "close_agent"]
 argument-hint: "[all|N-M|--max-workers N|--no-discuss]"
 user-invocable: true
@@ -172,7 +181,7 @@ for task in execution_order:
     TASK_BASE_REF = git rev-parse HEAD
 
     # B-1. sprint-contract を生成
-    contract_path = bash("node scripts/generate-sprint-contract.js {task.number}")
+    contract_path = bash("node \"${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js\" {task.number}")
     contract_path = bash("scripts/enrich-sprint-contract.sh {contract_path} --check \"DoD を reviewer 観点で確認\" --approve")
     bash("scripts/ensure-sprint-contract-ready.sh {contract_path}")
 
@@ -202,7 +211,7 @@ for task in execution_order:
 
     # B-4. Lead がレビュー実行（TASK_BASE_REF 起点）
     # 公式プラグイン companion review を使用（harness-work の「レビューループ」参照）:
-    #   bash scripts/codex-companion.sh review --base {TASK_BASE_REF}
+    #   bash "${HARNESS_PLUGIN_ROOT}/scripts/codex-companion.sh" review --base {TASK_BASE_REF}
     #   → verdict マッピング: approve→APPROVE, needs-attention→REQUEST_CHANGES
     VERDICT = review_task(worktree_path, TASK_BASE_REF)  # static review（harness-work 参照）
     PROFILE = jq(contract_path, ".review.reviewer_profile")

@@ -6,7 +6,7 @@
 # - session-init.sh の新規ルール検出
 # - session-init.sh の古いフック設定検出
 # - template-tracker.sh の needsInstall 報告
-# - harness-update.md の hooks 検出ロジック
+# - harness-setup の update 統合後ガイダンス
 
 set -e
 
@@ -142,31 +142,31 @@ assert_file_contains \
 echo ""
 
 # ============================================
-# harness-update.md の検証
+# harness-setup / update guidance の検証
 # ============================================
-echo "## harness-update.md"
+echo "## harness-setup update guidance"
 echo ""
 
-# harness-update スキルの検証（v2.17.0+ スキル移行後）
+# harness-update は現在 harness-setup に統合されている。
 assert_file_contains \
-  "skills/harness-update/SKILL.md" \
-  "hook|Hook|plugin" \
-  "harness-update にフック関連の説明がある"
+  "skills/harness-setup/SKILL.md" \
+  "harness-update.*Harness アップデート|Harness アップデート.*harness-update" \
+  "harness-update の役割が harness-setup に統合されている"
 
 assert_file_contains \
-  "skills/harness-update/SKILL.md" \
-  "Breaking Changes|breaking-changes|deprecated" \
-  "harness-update に破壊的変更検出がある"
+  "skills/harness-setup/SKILL.md" \
+  "harness sync|harness doctor|sync.*doctor" \
+  "harness-setup に同期と検証の手順がある"
 
 assert_file_contains \
-  "skills/harness-update/SKILL.md" \
-  "backup|Backup" \
-  "harness-update にバックアップ機能がある"
+  "docs/update-summary-2025-12-23-24.md" \
+  "古いフック設定.*hooks|カスタムフック保護" \
+  "アップデート履歴にフック検出と保護の説明がある"
 
 assert_file_contains \
-  "skills/harness-update/SKILL.md" \
-  "verification|Verification|検証" \
-  "harness-update に検証機能がある"
+  "docs/update-summary-2025-12-23-24.md" \
+  "新しいスキルを自動検出|削除されたスキルも検出" \
+  "アップデート履歴にスキル差分検出の説明がある"
 
 echo ""
 

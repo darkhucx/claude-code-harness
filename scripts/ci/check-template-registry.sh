@@ -115,7 +115,20 @@ fi
 echo ""
 echo "--- Check 4: No duplicate output paths ---"
 
-DUPLICATE_OUTPUTS=$(jq -r '.templates | to_entries | map(.value.output) | group_by(.) | map(select(length > 1)) | flatten | .[]' "$REGISTRY_FILE" 2>/dev/null)
+DUPLICATE_OUTPUTS=$(jq -r '
+  .templates
+  | to_entries
+  | map({
+      key: (.value.output + "\u0000" + (.value.locale // "default")),
+      output: .value.output,
+      locale: (.value.locale // "default")
+    })
+  | group_by(.key)
+  | map(select(length > 1))
+  | flatten
+  | .[]
+  | "\(.output) [locale=\(.locale)]"
+' "$REGISTRY_FILE" 2>/dev/null)
 
 if [ -n "$DUPLICATE_OUTPUTS" ]; then
   echo "❌ Duplicate output paths found:"

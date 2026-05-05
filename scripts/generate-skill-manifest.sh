@@ -41,6 +41,19 @@ process.stdout.on('error', (error) => {
 const [outputFile] = process.argv.slice(2);
 const repoRoot = process.cwd();
 const roots = ['skills', 'skills-codex', 'codex/.codex/skills', 'opencode/skills'];
+const designMetadataFields = [
+  'kind',
+  'purpose',
+  'trigger',
+  'shape',
+  'role',
+  'base',
+  'pair',
+  'owner',
+  'since',
+  'deprecated_in',
+  'replaces',
+];
 
 function walk(dirPath, entries) {
   if (!fs.existsSync(dirPath)) return;
@@ -156,7 +169,7 @@ const skills = skillFiles
     const relativePath = path.relative(repoRoot, filePath).split(path.sep).join('/');
     const directory = path.dirname(relativePath).split(path.sep).join('/');
     const surface = rootNameFor(relativePath);
-    return {
+    const entry = {
       path: relativePath,
       directory,
       surface,
@@ -172,6 +185,12 @@ const skills = skillFiles
       disable_model_invocation: typeof frontmatter['disable-model-invocation'] === 'boolean' ? frontmatter['disable-model-invocation'] : null,
       do_not_use_for: parseDoNotUseFor(frontmatter),
     };
+
+    for (const field of designMetadataFields) {
+      entry[field] = Object.prototype.hasOwnProperty.call(frontmatter, field) ? frontmatter[field] : null;
+    }
+
+    return entry;
   })
   .filter(Boolean)
   .sort((a, b) => a.path.localeCompare(b.path));

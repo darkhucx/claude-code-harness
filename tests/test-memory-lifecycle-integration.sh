@@ -111,7 +111,7 @@ printf '%s' "${START_PAYLOAD}" | (
   exit 1
 }
 
-init_output="$(cd "${CLAUDE_TMP}" && bash "./scripts/session-init.sh")"
+init_output="$(cd "${CLAUDE_TMP}" && bash "./scripts/session-init.sh" < /dev/null)"
 init_context="$(printf '%s' "${init_output}" | jq -r '.hookSpecificOutput.additionalContext')"
 echo "${init_context}" | grep -q 'Continue lifecycle verification' || {
   echo "session-init did not surface the continuity briefing"

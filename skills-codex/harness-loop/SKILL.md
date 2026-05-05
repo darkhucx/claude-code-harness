@@ -3,6 +3,15 @@ name: harness-loop
 description: "HAR: Codex-native long-running loop runner. Uses a real background runner that executes one ready batch per cycle through Breezing by default, with status/stop controls. Trigger: long-running, loop, autonomous, background, Codex. Do NOT load for: one-shot implementation, normal review, release."
 description-en: "HAR: Codex-native long-running loop runner. Uses a real background runner that executes one ready batch per cycle through Breezing by default, with status/stop controls. Trigger: long-running, loop, autonomous, background, Codex. Do NOT load for: one-shot implementation, normal review, release."
 description-ja: "HAR: Codex 専用の長時間ループ実行。実際のバックグラウンドランナーが ready batch を Breezing で進め、status / stop で監視できる。長時間、loop、ループ、autonomous、background、Codex で起動。"
+kind: workflow
+purpose: "Run long-lived Codex ready-batch execution loops"
+trigger: "long-running, loop, autonomous, background, Codex"
+shape: delegate
+role: orchestrator
+base: harness-work
+pair: harness-sync
+owner: harness-core
+since: "2026-05-05"
 allowed-tools: ["Read", "Bash"]
 argument-hint: "[all|TASK|START-END|START..END] [--max-cycles N] [--max-workers N|max] [--executor breezing|task] [--pacing worker|ci|plateau|night]"
 disable-model-invocation: true

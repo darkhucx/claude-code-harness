@@ -168,37 +168,37 @@ echo ""
 echo "## 第2層: Skills 品質ガードレール"
 echo ""
 
-# impl スキルの品質ガードレール
+# harness-work スキルの品質ガードレール
 assert_file_contains \
-  "skills/impl/SKILL.md" \
-  "品質ガードレール|Quality Guardrails" \
-  "impl/SKILL.md に品質ガードレールセクションがある"
+  "skills/harness-work/SKILL.md" \
+  "重要停止条件|critical / major review finding" \
+  "harness-work/SKILL.md に品質停止条件がある"
 
 assert_file_contains \
-  "skills/impl/SKILL.md" \
-  "禁止パターン|Prohibited|禁止" \
-  "impl/SKILL.md に禁止パターンが定義されている"
+  "skills/harness-work/SKILL.md" \
+  "テストを弱める|skip|期待値.*緩める" \
+  "harness-work/SKILL.md にテスト改ざん禁止が定義されている"
 
 assert_file_contains \
-  "skills/impl/SKILL.md" \
-  "purpose-driven|Purpose-Driven|目的駆動" \
-  "impl/SKILL.md に Purpose-Driven Implementation 原則がある"
+  "skills/harness-work/SKILL.md" \
+  "DoD|Plans\\.md|sprint-contract" \
+  "harness-work/SKILL.md に DoD / Plans ベースの実装原則がある"
 
-# verify スキルの品質ガードレール
+# harness-review / ci スキルの品質ガードレール
 assert_file_contains \
-  "skills/verify/SKILL.md" \
-  "品質ガードレール|Quality Guardrails" \
-  "verify/SKILL.md に品質ガードレールセクションがある"
-
-assert_file_contains \
-  "skills/verify/SKILL.md" \
-  "改ざん禁止|Tampering Prohibited|禁止" \
-  "verify/SKILL.md に改ざん禁止パターンが定義されている"
+  "skills/harness-review/SKILL.md" \
+  "Security, Performance, Quality|AI Residuals" \
+  "harness-review/SKILL.md に品質レビュー観点がある"
 
 assert_file_contains \
-  "skills/verify/SKILL.md" \
+  "skills/harness-review/SKILL.md" \
+  "it\\.skip|describe\\.skip|test\\.skip" \
+  "harness-review/SKILL.md にテスト skip 検出が定義されている"
+
+assert_file_contains \
+  "skills/ci/SKILL.md" \
   "承認リクエスト|Approval Request" \
-  "verify/SKILL.md に承認リクエスト形式がある"
+  "ci/SKILL.md に承認リクエスト形式がある"
 
 echo ""
 
@@ -210,9 +210,9 @@ echo ""
 
 # harness-init での品質ルール展開設定（スキル移行後）
 assert_file_contains \
-  "skills/harness-init/SKILL.md" \
-  "setup|Setup|Environment" \
-  "harness-init にセットアップ機能が含まれる"
+  "skills/harness-setup/SKILL.md" \
+  "harness-init|プロジェクト初期化|setup" \
+  "harness-setup に旧 harness-init 相当のセットアップ機能が含まれる"
 
 # 品質ルールファイルの存在確認
 assert_file_contains \
@@ -233,16 +233,16 @@ echo ""
 echo "## ドキュメント"
 echo ""
 
-# CLAUDE.md のテスト改ざん防止セクション
+# CLAUDE.md / AGENTS.md のテスト改ざん防止セクション
 assert_file_contains \
   "CLAUDE.md" \
   "テスト改ざん防止|Test Tampering Prevention" \
   "CLAUDE.md にテスト改ざん防止セクションがある"
 
 assert_file_contains \
-  "CLAUDE.md" \
+  "AGENTS.md" \
   "3層防御|3-layer|第1層|第2層|第3層" \
-  "CLAUDE.md に3層防御戦略の説明がある"
+  "AGENTS.md に3層防御戦略の説明がある"
 
 # README.md の品質保証関連の言及
 assert_file_contains \
@@ -252,8 +252,8 @@ assert_file_contains \
 
 # 設計ドキュメント
 assert_file_exists \
-  "docs/QUALITY_GUARD_DESIGN.md" \
-  "第3層 Hooks 設計ドキュメントが存在する"
+  "docs/update-summary-2025-12-23-24.md" \
+  "品質ガード導入ドキュメントが存在する"
 
 echo ""
 

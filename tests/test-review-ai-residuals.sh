@@ -66,6 +66,8 @@ diff_output="$(bash "${SCRIPT_PATH}" --base-ref HEAD)"
 echo "${diff_output}" | jq -e '
   .scan_mode == "diff" and
   .base_ref == "HEAD" and
+  .include_untracked == false and
+  (.untracked_files_scanned | length) == 0 and
   .summary.verdict == "REQUEST_CHANGES" and
   .summary.major >= 3 and
   .summary.minor >= 1 and
@@ -74,5 +76,58 @@ echo "${diff_output}" | jq -e '
   echo "diff scan did not return the expected files or severities"
   exit 1
 }
+
+cat > "${TMP_DIR}/src/untracked.ts" <<'EOF'
+export const localOnlyUrl = "http://localhost:3000";
+export const token = "sk-live-untracked-secret";
+
+test.skip("untracked smoke", () => {
+  expect(true).toBe(true);
+});
+EOF
+cat > "${TMP_DIR}/notes.md" <<'EOF'
+TODO: docs are ignored by residual scan.
+localhost:3000
+EOF
+cat > "${TMP_DIR}/binary.bin" <<'EOF'
+TODO: unsupported extension is ignored.
+EOF
+
+untracked_output="$(bash "${SCRIPT_PATH}" --base-ref HEAD --include-untracked)"
+
+echo "${untracked_output}" | jq -e '
+  .scan_mode == "diff" and
+  .base_ref == "HEAD" and
+  .include_untracked == true and
+  .summary.verdict == "REQUEST_CHANGES" and
+  (.files_scanned | sort) == ["src/major.ts", "src/minor.ts", "src/recommendation.ts", "src/untracked.ts"] and
+  (.untracked_files_scanned | sort) == ["src/recommendation.ts", "src/untracked.ts"] and
+  ([.observations[] | select(.location | startswith("src/untracked.ts:")) | .rule] | index("test-skip")) != null and
+  ([.observations[] | select(.location | startswith("src/untracked.ts:")) | .rule] | index("localhost-reference")) != null and
+  ([.observations[] | select(.location | startswith("src/untracked.ts:")) | .rule] | index("hardcoded-secret")) != null and
+  ((.files_scanned | index("notes.md")) == null) and
+  ((.files_scanned | index("binary.bin")) == null)
+' >/dev/null || {
+  echo "--include-untracked scan did not return the expected files or JSON metadata"
+  exit 1
+}
+
+if rg -n "grep -nE 'TODO\\|FIXME\\|XXX" \
+  "${ROOT_DIR}/skills/harness-review/SKILL.md" \
+  "${ROOT_DIR}/codex/.codex/skills/harness-review/SKILL.md" \
+  "${ROOT_DIR}/opencode/skills/harness-review/SKILL.md" >/tmp/review-ai-residuals-docs.$$ 2>/dev/null; then
+  cat /tmp/review-ai-residuals-docs.$$
+  rm -f /tmp/review-ai-residuals-docs.$$ || true
+  echo "harness-review docs still contain the manual untracked grep scanner"
+  exit 1
+fi
+rm -f /tmp/review-ai-residuals-docs.$$ || true
+
+if ! rg -q --fixed-strings -- "--include-untracked" \
+  "${ROOT_DIR}/skills/harness-review/SKILL.md" \
+  "${ROOT_DIR}/codex/.codex/skills/harness-review/SKILL.md"; then
+  echo "harness-review docs do not point to --include-untracked"
+  exit 1
+fi
 
 echo "OK"

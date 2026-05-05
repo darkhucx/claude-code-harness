@@ -3,6 +3,14 @@ name: harness-plan
 description: "HAR: Task planning, Plans.md management, progress sync. Trigger: create a plan, add tasks, update Plans.md, mark complete, check progress. Do NOT load for: implementation, review, release."
 description-en: "HAR: Task planning, Plans.md management, progress sync. Trigger: create a plan, add tasks, update Plans.md, mark complete, check progress. Do NOT load for: implementation, review, release."
 description-ja: "HAR:タスク計画・Plans.md管理・進捗同期を担当。計画作って、計画を作る、タスクを追加、Plans.md更新、完了マーク、進捗確認で起動。実装・レビュー・リリースには使わない。"
+kind: workflow
+purpose: "Create and maintain Plans.md task contracts"
+trigger: "create a plan, add tasks, update Plans.md, check progress"
+shape: workflow
+role: generator
+pair: harness-sync
+owner: harness-core
+since: "2026-05-05"
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "Task"]
 argument-hint: "[create|add|update|sync|sync --no-retro|--ci]"
 user-invocable: true

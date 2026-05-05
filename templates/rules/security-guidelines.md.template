@@ -1,3 +1,9 @@
+---
+_harness_template: "rules/security-guidelines.md.template"
+_harness_version: "2.5.30"
+description: "セキュリティガイドライン"
+---
+
 # セキュリティガイドライン
 
 > このルールは Claude harness によって自動生成されました。

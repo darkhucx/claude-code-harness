@@ -30,8 +30,14 @@ grep -q 'PLAN / CORRECTION / STOP' "${ADVISOR_FILE}" \
 grep -q 'コードを書かない' "${ADVISOR_FILE}" \
   || fail "advisor.md に非実装ルールがありません"
 
-grep -q 'Harness の4エージェント構成' "${TEAM_FILE}" \
-  || fail "team-composition.md に 4 役構成の説明がありません"
+grep -q 'Harness の標準チーム構成は 5 ロール' "${TEAM_FILE}" \
+  || fail "team-composition.md に 5 ロール構成の説明がありません"
+
+grep -q 'permissionMode' "${TEAM_FILE}" \
+  || fail "team-composition.md に permissionMode 境界の説明がありません"
+
+grep -q '親セッションと plugin settings から継承' "${TEAM_FILE}" \
+  || fail "team-composition.md に権限継承の説明がありません"
 
 grep -q 'advisor-request.v1' "${WORKER_FILE}" \
   || fail "worker.md に advisor-request.v1 がありません"

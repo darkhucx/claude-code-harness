@@ -10,18 +10,26 @@ Change history for claude-code-harness.
 
 - Release pre-gate version sync now checks `VERSION`, `package.json` when present, `.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json` `metadata.version` / `plugins[].version` with a structured parser before tag or release work proceeds.
 - Added output governance, Claude Code setup/MCP/telemetry/provider, Codex plugin workflow, and memory policy docs for the Phase 58 and Phase 51 follow-ups.
+- Added a Skill orchestration design contract, machine-readable design metadata, and a CI gate for core Claude/Codex/OpenCode skill surfaces.
+- Added `IMPLEMENTATION_GUIDE.md` as a Go-first implementation map for contributors and plugin validators.
 
 ### Changed
 
 - Codex Breezing / harness-work guidance now uses native `spawn_agent`, `send_input`, `wait_agent`, and `close_agent` contracts instead of Claude Code Agent / SendMessage pseudo-code.
 - Media and announcement skills are now explicitly internal/manual workflows, with Claude `AskUserQuestion` versus Codex input handling documented instead of relying on automatic user-prompt activation.
 - Skill mirrors for `.agents`, Codex, and OpenCode are synchronized for the updated harness-loop, release, review, setup, media, and session-memory surfaces.
+- Core workflow skills now expose `purpose`, `trigger`, `shape`, `role`, `base`, and `pair` metadata so Claude and Codex can inventory wrappers, evaluators, and execution skills consistently.
+- `harness-work` now points heavy execution, review loop, completion report, and failure reticketing details to `references/` docs while keeping the entry path and stop conditions visible in `SKILL.md`.
 
 ### Fixed
 
 - `harness-loop` now resolves helper scripts through the plugin bundle root instead of the caller project's `scripts/` directory, preventing cross-repo loop startup failures.
 - `harness-review` mirror docs no longer rely on broken `../../docs/ultrareview-policy.md` links.
 - `.claude-plugin/marketplace.json` now carries version metadata aligned with `VERSION` and `.claude-plugin/plugin.json`.
+- `review-ai-residuals.sh --include-untracked` now scans untracked source/config files through the same JSON contract as tracked diffs, removing the manual grep path from Claude and Codex review docs.
+- Plugin agent frontmatter no longer carries ignored `permissionMode` or agent-local `hooks`; write safety is documented as plugin hooks plus Go guardrails plus Worker preflight.
+- `validate-plugin.sh` now distinguishes executable entrypoints from source-only shell libraries and keeps the plugin validation summary at zero warnings.
+- Template registry coverage now includes locale, rule, and sandbox templates without false duplicate-output failures.
 
 ## [4.5.4] - 2026-05-04
 

@@ -111,16 +111,16 @@ raw `codex exec` をチーム標準手順として書かない。
 
 ## permission mode
 
-現行 shipped default は `bypassPermissions`。
-理由は、teammate 実行時の権限継承を agent frontmatter と一致させるため。
+Plugin subagent frontmatter には `permissionMode` を置かない。
+Claude Code の plugin agent では agent-local `permissionMode` が無視されるため、
+権限は親セッションと plugin settings から継承する。
 
-| レイヤー | 現行値 |
-|---------|--------|
-| project template | `bypassPermissions` |
-| worker frontmatter | `bypassPermissions` |
-| reviewer frontmatter | `bypassPermissions` |
-| advisor frontmatter | `bypassPermissions` |
-| scaffolder frontmatter | `bypassPermissions` |
+安全境界は次の層で担保する。
+
+- plugin-level hooks
+- Go guardrails
+- Worker preflight
+- Reviewer 判定
 
 `--auto-mode` は rollout 用の opt-in。
 既定値にはしない。

@@ -1,6 +1,6 @@
 #!/bin/bash
 # validate-plugin-v3.sh
-# Harness v3 プラグイン構造バリデーター
+# Harness v4 プラグイン構造バリデーター
 #
 # Usage: ./tests/validate-plugin-v3.sh
 # Exit codes:
@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo "=========================================="
-echo "Claude Harness v3 — プラグイン検証テスト"
+echo "Claude Harness v4 — プラグイン検証テスト"
 echo "=========================================="
 echo ""
 
@@ -32,24 +32,26 @@ fail_test() { echo -e "${RED}✗${NC} $1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 warn_test() { echo -e "${YELLOW}⚠${NC} $1"; WARN_COUNT=$((WARN_COUNT + 1)); }
 
 # ============================================================
-# [1] v3 コア構造チェック
+# [1] v4 Go コア構造チェック
 # ============================================================
-echo "📁 [1/6] v3 コア構造チェック..."
+echo "📁 [1/7] v4 Go コア構造チェック..."
 
-V3_REQUIRED_FILES=(
-  "core/package.json"
-  "core/tsconfig.json"
-  "core/src/index.ts"
-  "core/src/types.ts"
-  "core/src/guardrails/rules.ts"
-  "core/src/guardrails/pre-tool.ts"
-  "core/src/guardrails/post-tool.ts"
-  "core/src/guardrails/permission.ts"
-  "core/src/guardrails/tampering.ts"
-  "core/src/engine/lifecycle.ts"
+V4_REQUIRED_FILES=(
+  "go/go.mod"
+  "go/cmd/harness/main.go"
+  "go/cmd/harness/doctor.go"
+  "go/cmd/harness/sync.go"
+  "go/cmd/harness/validate.go"
+  "go/internal/guardrail/rules.go"
+  "go/internal/guardrail/pre_tool.go"
+  "go/internal/guardrail/post_tool.go"
+  "go/internal/guardrail/permission.go"
+  "go/internal/guardrail/tampering.go"
+  "go/internal/hookhandler/setup_hook.go"
+  "go/internal/hookhandler/stop_session_evaluator.go"
 )
 
-for f in "${V3_REQUIRED_FILES[@]}"; do
+for f in "${V4_REQUIRED_FILES[@]}"; do
   if [ -f "$PLUGIN_ROOT/$f" ]; then
     pass_test "$f"
   else
@@ -61,7 +63,7 @@ done
 # [2] 5動詞スキルチェック
 # ============================================================
 echo ""
-echo "🎯 [2/6] 5動詞スキルチェック..."
+echo "🎯 [2/7] 5動詞スキルチェック..."
 
 V3_SKILLS=(harness-plan harness-work harness-review harness-release harness-setup)
 AUX_V3_SKILLS=(harness-sync)
@@ -89,7 +91,7 @@ for skill in "${V3_SKILLS[@]}"; do
 done
 
 echo ""
-echo "🧭 [2.5/6] 補助 workflow surface チェック..."
+echo "🧭 [2.5/7] 補助 workflow surface チェック..."
 
 for skill in "${AUX_V3_SKILLS[@]}"; do
   skill_dir="$PLUGIN_ROOT/skills/$skill"
@@ -116,7 +118,7 @@ done
 # [3] Public mirror bundle チェック
 # ============================================================
 echo ""
-echo "📦 [3/6] Public mirror bundle チェック..."
+echo "📦 [3/7] Public mirror bundle チェック..."
 
 MIRRORS=(
   "codex/.codex/skills"
@@ -130,7 +132,6 @@ for mirror_dir in "${MIRRORS[@]}"; do
   fi
 
   for skill in "${V3_SKILLS[@]}"; do
-    source_dir="$PLUGIN_ROOT/skills/$skill"
     mirror_path="$PLUGIN_ROOT/$mirror_dir/$skill"
 
     if [ ! -d "$mirror_path" ]; then
@@ -143,15 +144,10 @@ for mirror_dir in "${MIRRORS[@]}"; do
       continue
     fi
 
-    if diff -qr "$source_dir" "$mirror_path" >/dev/null 2>&1; then
-      pass_test "$mirror_dir/$skill (skills/$skill と同期)"
-    else
-      fail_test "$mirror_dir/$skill (skills/$skill と差分あり)"
-    fi
+    pass_test "$mirror_dir/$skill (実体ディレクトリ)"
   done
 
   for skill in "${AUX_V3_SKILLS[@]}"; do
-    source_dir="$PLUGIN_ROOT/skills/$skill"
     mirror_path="$PLUGIN_ROOT/$mirror_dir/$skill"
 
     if [ ! -d "$mirror_path" ]; then
@@ -164,21 +160,23 @@ for mirror_dir in "${MIRRORS[@]}"; do
       continue
     fi
 
-    if diff -qr "$source_dir" "$mirror_path" >/dev/null 2>&1; then
-      pass_test "$mirror_dir/$skill (skills/$skill と同期)"
-    else
-      fail_test "$mirror_dir/$skill (skills/$skill と差分あり)"
-    fi
+    pass_test "$mirror_dir/$skill (実体ディレクトリ)"
   done
 done
 
+if bash "$PLUGIN_ROOT/scripts/sync-skill-mirrors.sh" --check >/dev/null 2>&1; then
+  pass_test "sync-skill-mirrors.sh --check"
+else
+  fail_test "sync-skill-mirrors.sh --check"
+fi
+
 # ============================================================
-# [4] 3エージェントチェック
+# [4] エージェントチェック
 # ============================================================
 echo ""
-echo "🤖 [4/6] 3エージェントチェック..."
+echo "🤖 [4/7] エージェントチェック..."
 
-V3_AGENTS=(worker reviewer scaffolder)
+V3_AGENTS=(worker reviewer scaffolder advisor)
 
 for agent in "${V3_AGENTS[@]}"; do
   agent_file="$PLUGIN_ROOT/agents/$agent.md"
@@ -202,35 +200,38 @@ else
 fi
 
 # ============================================================
-# [5] TypeScript 型チェック
+# [5] Go build / guardrail test
 # ============================================================
 echo ""
-echo "🔷 [5/6] TypeScript 型チェック..."
+echo "🔷 [5/7] Go build / guardrail test..."
 
-CORE_DIR="$PLUGIN_ROOT/core"
+GO_DIR="$PLUGIN_ROOT/go"
 
-if [ ! -d "$CORE_DIR/node_modules" ]; then
-  warn_test "core/node_modules なし — npm ci が必要 (スキップ)"
+if [ ! -d "$GO_DIR" ]; then
+  fail_test "go/ (存在しない)"
 else
-  if cd "$CORE_DIR" && npm run typecheck --silent 2>/dev/null; then
-    pass_test "core/ TypeScript 型チェック通過"
+  if (cd "$GO_DIR" && go build ./cmd/harness >/dev/null 2>&1); then
+    pass_test "go build ./cmd/harness"
   else
-    fail_test "core/ TypeScript 型チェック失敗"
+    fail_test "go build ./cmd/harness"
   fi
-  cd "$PLUGIN_ROOT"
+
+  if (cd "$GO_DIR" && go test ./internal/guardrail >/dev/null 2>&1); then
+    pass_test "go test ./internal/guardrail"
+  else
+    fail_test "go test ./internal/guardrail"
+  fi
 fi
 
 # ============================================================
-# [6] hooks シム チェック
+# [6] hooks / runtime チェック
 # ============================================================
 echo ""
-echo "🪝 [6/6] hooks シムチェック..."
+echo "🪝 [6/7] hooks / runtime チェック..."
 
 HOOK_FILES=(
-  "hooks/pre-tool.sh"
-  "hooks/post-tool.sh"
-  "hooks/session.sh"
   "hooks/hooks.json"
+  "bin/harness"
 )
 
 for f in "${HOOK_FILES[@]}"; do
@@ -284,13 +285,13 @@ fi
 for rule_id in \
   "R10:no-git-bypass-flags" \
   "R11:no-reset-hard-protected-branch" \
-  "R12:warn-direct-push-protected-branch" \
+  "R12:confirm-direct-push-protected-branch" \
   "R13:warn-protected-review-paths"
 do
-  if grep -q "$rule_id" "$PLUGIN_ROOT/core/src/guardrails/rules.ts"; then
-    pass_test "core/src/guardrails/rules.ts ($rule_id)"
+  if grep -q "$rule_id" "$PLUGIN_ROOT/go/internal/guardrail/rules.go"; then
+    pass_test "go/internal/guardrail/rules.go ($rule_id)"
   else
-    fail_test "core/src/guardrails/rules.ts ($rule_id がない)"
+    fail_test "go/internal/guardrail/rules.go ($rule_id がない)"
   fi
 done
 

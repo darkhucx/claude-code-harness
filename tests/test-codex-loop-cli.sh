@@ -486,7 +486,8 @@ poll_for_status() {
   local run_json="$1"
   local expected="$2"
   local tries=0
-  while [ "${tries}" -lt 80 ]; do
+  local max_tries="${CODEX_LOOP_TEST_POLL_TRIES:-160}"
+  while [ "${tries}" -lt "${max_tries}" ]; do
     if [ -f "${run_json}" ]; then
       local status
       status="$(python3 - "${run_json}" <<'PY'

@@ -1,3 +1,9 @@
+---
+_harness_template: "rules/quality-gates.md.template"
+_harness_version: "2.5.30"
+description: "品質判定ゲート"
+---
+
 # 品質判定ゲート
 
 > このルールは Claude harness によって自動生成されました。

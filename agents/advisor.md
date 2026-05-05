@@ -13,7 +13,6 @@ disallowedTools:
 model: claude-opus-4-6
 effort: xhigh
 maxTurns: 20
-permissionMode: bypassPermissions
 color: purple
 memory: project
 initialPrompt: |

@@ -145,7 +145,7 @@ test_hooks_has_commit_cleanup() {
   if ! command -v jq &> /dev/null; then
     echo "    Warning: jq not available, skipping JSON validation"
     # jq がなくても grep で確認
-    if ! grep -q "posttooluse-commit-cleanup" "$hooks_file" 2>/dev/null; then
+    if ! grep -Eq "posttooluse-commit-cleanup|hook commit-cleanup" "$hooks_file" 2>/dev/null; then
       echo "    Error: commit-cleanup hook not registered in hooks.json"
       return 1
     fi
@@ -153,7 +153,7 @@ test_hooks_has_commit_cleanup() {
   fi
 
   # PostToolUse に Bash マッチャーで commit-cleanup が登録されているか
-  if ! jq -e '.hooks.PostToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.command | contains("posttooluse-commit-cleanup"))' "$hooks_file" > /dev/null 2>&1; then
+  if ! jq -e '.hooks.PostToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.command | contains("posttooluse-commit-cleanup") or contains("hook commit-cleanup"))' "$hooks_file" > /dev/null 2>&1; then
     echo "    Error: commit-cleanup hook not properly registered for Bash in PostToolUse"
     return 1
   fi
@@ -167,7 +167,7 @@ test_hooks_has_commit_cleanup() {
 test_plugin_hooks_has_commit_cleanup() {
   local hooks_file="$PROJECT_ROOT/.claude-plugin/hooks.json"
 
-  if ! grep -q "posttooluse-commit-cleanup" "$hooks_file" 2>/dev/null; then
+  if ! grep -Eq "posttooluse-commit-cleanup|hook commit-cleanup" "$hooks_file" 2>/dev/null; then
     echo "    Error: commit-cleanup hook not registered in .claude-plugin/hooks.json"
     return 1
   fi

@@ -3,6 +3,14 @@ name: harness-review
 description: "HAR: Multi-angle code, plan, scope review. Security/quality check. Trigger: review, code review, plan review, scope analysis. Do NOT load for: implementation, new features, bugfix, setup, release."
 description-en: "HAR: Multi-angle code, plan, scope review. Security/quality check. Trigger: review, code review, plan review, scope analysis. Do NOT load for: implementation, new features, bugfix, setup, release."
 description-ja: "HAR:コード・プラン・スコープを多角的にレビュー。セキュリティ・品質チェック。レビュー、コードレビュー、プランレビュー、スコープ分析で起動。実装・新機能・バグ修正・セットアップ・リリースには使わない。"
+kind: workflow
+purpose: "Review code, plans, scope, and evidence before acceptance"
+trigger: "review, code review, plan review, scope analysis"
+shape: evaluate
+role: evaluator
+pair: harness-work
+owner: harness-core
+since: "2026-05-05"
 allowed-tools: ["Read", "Grep", "Glob", "Bash", "Task", "Monitor"]
 argument-hint: "[code|plan|scope] [--dual] [--security] [--ui-rubric]"
 context: fork
@@ -269,41 +277,21 @@ fi
 LLM の印象だけで判定せず、再実行できる形で残骸候補を拾う。`scripts/review-ai-residuals.sh` は stable な JSON を返すので、その結果をレビュー根拠として使う。
 
 ```bash
+HARNESS_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$HARNESS_PLUGIN_ROOT" ] && [ -n "${CLAUDE_SKILL_DIR:-}" ]; then
+  HARNESS_PLUGIN_ROOT="$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd)"
+fi
+
 # 差分ベース
-AI_RESIDUALS_JSON="$(bash scripts/review-ai-residuals.sh --base-ref "${BASE_REF:-HEAD~1}")"
+AI_RESIDUALS_JSON="$(bash "${HARNESS_PLUGIN_ROOT}/scripts/review-ai-residuals.sh" --base-ref "${BASE_REF:-HEAD~1}" --include-untracked)"
 
 # 対象ファイルを明示したい場合
-bash scripts/review-ai-residuals.sh path/to/file.ts path/to/config.sh
+bash "${HARNESS_PLUGIN_ROOT}/scripts/review-ai-residuals.sh" path/to/file.ts path/to/config.sh
 ```
 
-#### Step 1.5.b: untracked files を AI residuals 観点で追加スキャン
-
-`scripts/review-ai-residuals.sh` は `git diff --name-only` ベースで動作するため untracked files を走査しない。
-PR 途中で作成したが stage していないファイルに残る `TODO` / `test.skip` / ハードコード秘密値が
-「AI residuals なし」と誤判定されるのを防ぐため、Step 1.5.b で個別スキャンを実施する。
-
-```bash
-# Step 1.5.b: untracked files を AI residuals 観点で手動スキャン
-# (review-ai-residuals.sh は git diff ベースのため untracked を含まない)
-if [ "$UNTRACKED_COUNT" -gt 0 ]; then
-  echo "🔍 untracked files ${UNTRACKED_COUNT} 件を AI residuals 観点で追加スキャン"
-  # スキャンパターン: TODO/FIXME/XXX, test.skip/it.skip/describe.skip,
-  # eslint-disable, ハードコード秘密値 (sk-*, AKIA*, BEGIN PRIVATE KEY, password = "...")
-  UNTRACKED_RESIDUALS="$(printf '%s\n' "$UNTRACKED_FILES" | while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    [ ! -f "$f" ] && continue
-    grep -nE 'TODO|FIXME|XXX|\.skip\(|\.only\(|eslint-disable|sk-[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|BEGIN [A-Z ]*PRIVATE KEY|password[[:space:]]*=[[:space:]]*"[^"]+"' "$f" 2>/dev/null \
-      | sed "s|^|$f:|"
-  done || true)"
-  if [ -n "$UNTRACKED_RESIDUALS" ]; then
-    echo "⚠️ untracked files に AI residuals 候補が見つかりました:"
-    echo "$UNTRACKED_RESIDUALS"
-    echo ""
-    echo "上記ヒットは Step 2.2 の severity 判定表に従って critical/major/minor に分類し、"
-    echo "verdict に反映してください（major 以上が 1 件でも → REQUEST_CHANGES）。"
-  fi
-fi
-```
+`--include-untracked` は `git ls-files --others --exclude-standard` の対象も同じ JSON に入れる。
+`files_scanned` は tracked diff と untracked の合算、`untracked_files_scanned` は未追跡ファイルだけの証跡。
+Claude 側・Codex 側とも、この JSON を読んで Step 2.2 の severity 判定に進む。
 
 ### Step 2: 5観点でレビュー
 

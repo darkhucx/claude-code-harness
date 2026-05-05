@@ -23,6 +23,37 @@ jq -e '
 ' "${OUTPUT_JSON}" >/dev/null
 
 jq -e '
+  any(.skills[];
+    .path == "skills/harness-work/SKILL.md" and
+    .kind == "workflow" and
+    .purpose == "Execute Plans.md tasks end to end" and
+    (.trigger | contains("implement")) and
+    .shape == "workflow" and
+    .role == "executor" and
+    .pair == "harness-review" and
+    .owner == "harness-core" and
+    .since == "2026-05-05" and
+    .base == null and
+    .deprecated_in == null and
+    .replaces == null
+  ) and
+  any(.skills[];
+    .path == "skills/breezing/SKILL.md" and
+    .shape == "wrap" and
+    .role == "orchestrator" and
+    .base == "harness-work" and
+    .pair == "harness-review"
+  ) and
+  any(.skills[];
+    .path == "skills/gogcli-ops/SKILL.md" and
+    .kind == null and
+    .purpose == null and
+    .shape == null and
+    .role == null
+  )
+' "${OUTPUT_JSON}" >/dev/null
+
+jq -e '
   any(.skills[]; .path == "skills/gogcli-ops/SKILL.md" and .disable_model_invocation == true) and
   any(.skills[]; .path == "skills/session-control/SKILL.md" and .user_invocable == false and .disable_model_invocation == true) and
   any(.skills[]; .path == "skills/ci/SKILL.md" and .user_invocable == true and .disable_model_invocation == true)

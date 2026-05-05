@@ -20,6 +20,27 @@
       "description": "Task tracking",
       "tracked": true
     },
+    "locales/ja/CLAUDE.md.template": {
+      "output": "CLAUDE.md",
+      "templateVersion": "4.3.3",
+      "description": "Project guidance (Japanese)",
+      "tracked": true,
+      "locale": "ja"
+    },
+    "locales/ja/AGENTS.md.template": {
+      "output": "AGENTS.md",
+      "templateVersion": "4.3.3",
+      "description": "Agent guidance (Japanese)",
+      "tracked": true,
+      "locale": "ja"
+    },
+    "locales/ja/Plans.md.template": {
+      "output": "Plans.md",
+      "templateVersion": "4.3.3",
+      "description": "Task tracking (Japanese)",
+      "tracked": true,
+      "locale": "ja"
+    },
     "rules/workflow.md.template": {
       "output": ".claude/rules/workflow.md",
       "templateVersion": "2.5.23",
@@ -60,6 +81,24 @@
       "output": ".claude/rules/implementation-quality.md",
       "templateVersion": "2.5.30",
       "description": "Implementation quality guardrails",
+      "tracked": true
+    },
+    "rules/quality-gates.md.template": {
+      "output": ".claude/rules/quality-gates.md",
+      "templateVersion": "2.5.30",
+      "description": "Quality gate rules",
+      "tracked": true
+    },
+    "rules/security-guidelines.md.template": {
+      "output": ".claude/rules/security-guidelines.md",
+      "templateVersion": "2.5.30",
+      "description": "Security review guidelines",
+      "tracked": true
+    },
+    "rules/tdd-guidelines.md.template": {
+      "output": ".claude/rules/tdd-guidelines.md",
+      "templateVersion": "2.5.30",
+      "description": "TDD guidance rules",
       "tracked": true
     },
     "rules/skills-gate.md.template": {
@@ -106,6 +145,12 @@
       "description": "Security settings",
       "tracked": true
     },
+    "sandbox-settings.json.template": {
+      "output": ".claude/settings.sandbox.json",
+      "templateVersion": "4.3.3",
+      "description": "Optional sandbox settings",
+      "tracked": false
+    },
     "state/skills-policy.json.template": {
       "output": ".claude/state/skills-policy.json",
       "templateVersion": "2.5.23",
@@ -123,6 +168,13 @@
       "templateVersion": "4.3.3",
       "description": "Plugin settings",
       "tracked": true
+    },
+    "locales/ja/.claude-code-harness.config.yaml.template": {
+      "output": ".claude-code-harness.config.yaml",
+      "templateVersion": "4.3.3",
+      "description": "Plugin settings (Japanese)",
+      "tracked": true,
+      "locale": "ja"
     },
     ".claude-code-harness-version.template": {
       "output": ".claude-code-harness-version",

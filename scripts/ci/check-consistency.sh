@@ -508,6 +508,22 @@ fi
 rm -f "$FULL_MIRROR_LOG"
 
 # ================================
+# 10.5 Skill orchestration design contract
+# ================================
+echo ""
+echo "🧭 [10.5/14] Skill orchestration design contract..."
+
+SKILL_DESIGN_LOG="$(mktemp "${TMPDIR:-/tmp}/harness-skill-design.XXXXXX")"
+if bash "$PLUGIN_ROOT/tests/test-skill-design-contract.sh" >"$SKILL_DESIGN_LOG" 2>&1; then
+  echo "  ✅ core skill design metadata is consistent"
+else
+  echo "  ❌ core skill design metadata check failed"
+  sed 's/^/      /' "$SKILL_DESIGN_LOG" | tail -80
+  ERRORS=$((ERRORS + 1))
+fi
+rm -f "$SKILL_DESIGN_LOG"
+
+# ================================
 # 11. CHANGELOG フォーマット検証
 # ================================
 echo ""

@@ -32,8 +32,8 @@ cat > "${TMP_DIR}/.claude/state/snapshots/progress-20260309T160000Z.json" <<'EOF
 {"timestamp":"2026-03-09T16:00:00Z","phase":"Phase 27","progress":{"done":10,"wip":1,"todo":5},"progress_rate":62}
 EOF
 
-init_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-init.sh")"
-resume_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-resume.sh")"
+init_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-init.sh" < /dev/null)"
+resume_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-resume.sh" < /dev/null)"
 init_context="$(printf '%s' "${init_output}" | jq -r '.hookSpecificOutput.additionalContext')"
 resume_context="$(printf '%s' "${resume_output}" | jq -r '.hookSpecificOutput.additionalContext')"
 
@@ -63,7 +63,7 @@ echo "${resume_output}" | grep -q '前回比' || {
 }
 
 rm -f "${TMP_DIR}/.claude/state/snapshots/"progress-*.json
-quiet_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-init.sh")"
+quiet_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-init.sh" < /dev/null)"
 quiet_context="$(printf '%s' "${quiet_output}" | jq -r '.hookSpecificOutput.additionalContext')"
 if echo "${quiet_output}" | grep -q '\[record-usage\]'; then
   echo "session-init quiet output should not include record-usage noise"

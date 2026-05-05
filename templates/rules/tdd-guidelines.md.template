@@ -1,3 +1,9 @@
+---
+_harness_template: "rules/tdd-guidelines.md.template"
+_harness_version: "2.5.30"
+description: "TDD ガイドライン"
+---
+
 # TDD ガイドライン
 
 > このルールは Claude harness によって自動生成されました。

@@ -3,6 +3,14 @@ name: harness-sync
 description: "HAR: Sync Plans.md with implementation. Drift detect, marker update, retrospective. Trigger: sync-status, where am I, check progress. --snapshot for snapshots. Do NOT load for: planning, implementation, review, release."
 description-en: "HAR: Sync Plans.md with implementation. Drift detect, marker update, retrospective. Trigger: sync-status, where am I, check progress. --snapshot for snapshots. Do NOT load for: planning, implementation, review, release."
 description-ja: "HAR:Plans.md と実装の進捗同期。差分検出・マーカー更新・レトロスペクティブ。sync-status、進捗確認、今どこ、どこまで終わったで起動。--snapshot でスナップショット保存。プランニング・実装・レビュー・リリースには使わない。"
+kind: workflow
+purpose: "Reconcile Plans.md, git, and implementation state"
+trigger: "sync-status, where am I, check progress"
+shape: workflow
+role: synchronizer
+pair: harness-plan
+owner: harness-core
+since: "2026-05-05"
 allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob"]
 argument-hint: "[--snapshot|--no-retro]"
 user-invocable: true

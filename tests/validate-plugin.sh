@@ -365,6 +365,13 @@ if [ -d "$PLUGIN_ROOT/agents" ]; then
     else
         warn_test "エージェントが定義されていません"
     fi
+    IGNORED_AGENT_FIELDS=$(grep -rnE "^(permissionMode|hooks):" "$PLUGIN_ROOT/agents"/*.md 2>/dev/null || true)
+    if [ -n "$IGNORED_AGENT_FIELDS" ]; then
+        fail_test "plugin agent で無視される frontmatter field が残っています"
+        echo "$IGNORED_AGENT_FIELDS" | sed 's/^/  /'
+    else
+        pass_test "plugin agent に ignored permissionMode/hooks frontmatter はありません"
+    fi
 else
     warn_test "agents ディレクトリが見つかりません"
 fi
@@ -457,16 +464,22 @@ echo "6. スクリプトの検証"
 echo "----------------------------------------"
 
 if [ -d "$PLUGIN_ROOT/scripts" ]; then
-    SCRIPT_COUNT=$(find "$PLUGIN_ROOT/scripts" -name "*.sh" -type f | wc -l)
+    SCRIPT_COUNT=$(find "$PLUGIN_ROOT/scripts" -name "*.sh" -type f \
+        ! -path "$PLUGIN_ROOT/scripts/lib/*" \
+        ! -name "config-utils.sh" | wc -l)
     if [ $SCRIPT_COUNT -gt 0 ]; then
-        pass_test "$SCRIPT_COUNT 個のスクリプトが存在します"
+        pass_test "$SCRIPT_COUNT 個の実行対象スクリプトが存在します"
         
         # 実行権限の確認（GNU/BSD 両対応: -perm -111 を使用）
-        EXECUTABLE_COUNT=$(find "$PLUGIN_ROOT/scripts" -name "*.sh" -type f -perm -111 | wc -l | tr -d ' ')
+        # scripts/lib/* と config-utils.sh は source 用のライブラリなので除外する。
+        EXECUTABLE_COUNT=$(find "$PLUGIN_ROOT/scripts" -name "*.sh" -type f \
+            ! -path "$PLUGIN_ROOT/scripts/lib/*" \
+            ! -name "config-utils.sh" \
+            -perm -111 | wc -l | tr -d ' ')
         if [ $EXECUTABLE_COUNT -eq $SCRIPT_COUNT ]; then
-            pass_test "全てのスクリプトに実行権限があります"
+            pass_test "全ての実行対象スクリプトに実行権限があります"
         else
-            warn_test "一部のスクリプトに実行権限がありません ($EXECUTABLE_COUNT/$SCRIPT_COUNT)"
+            warn_test "一部の実行対象スクリプトに実行権限がありません ($EXECUTABLE_COUNT/$SCRIPT_COUNT)"
         fi
     else
         warn_test "スクリプトが見つかりません"

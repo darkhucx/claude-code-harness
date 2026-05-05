@@ -13,7 +13,6 @@ disallowedTools:
 model: claude-sonnet-4-6
 effort: medium
 maxTurns: 75
-permissionMode: bypassPermissions
 color: green
 memory: project
 initialPrompt: |

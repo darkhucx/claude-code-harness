@@ -29,17 +29,17 @@ TESTS_SKIPPED=0
 
 log_pass() {
   echo -e "${GREEN}✅ PASS${NC}: $1"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 log_fail() {
   echo -e "${RED}❌ FAIL${NC}: $1"
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 log_skip() {
   echo -e "${YELLOW}⚠️ SKIP${NC}: $1"
-  ((TESTS_SKIPPED++))
+  TESTS_SKIPPED=$((TESTS_SKIPPED + 1))
 }
 
 log_info() {
@@ -133,48 +133,55 @@ test_json_template_metadata() {
 test_version_consistency() {
   echo ""
   echo "=== Test 3: バージョン一貫性検証 ==="
-  
+
   local plugin_version
   plugin_version=$(cat "$VERSION_FILE" | tr -d '\n')
   log_info "プラグインバージョン: $plugin_version"
-  
-  # registry のバージョンチェック
+
+  # templateVersion は「テンプレート自体の更新バージョン」なので、
+  # プラグイン全体の VERSION と常に一致する必要はない。
+  # ここでは registry の形式と、代表的なテンプレート実体との一致を検証する。
   if command -v jq >/dev/null 2>&1; then
-    local registry_versions
-    registry_versions=$(jq -r '.templates[].templateVersion' "$REGISTRY_FILE" 2>/dev/null | sort -u)
-    
-    local inconsistent=0
-    while IFS= read -r ver; do
-      if [ "$ver" != "$plugin_version" ]; then
-        log_fail "template-registry.json: バージョン不一致 ($ver != $plugin_version)"
-        inconsistent=1
+    local invalid_versions=0
+    while IFS= read -r entry; do
+      local key="${entry%%$'\t'*}"
+      local ver="${entry#*$'\t'}"
+
+      if ! echo "$ver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        log_fail "template-registry.json: $key の templateVersion 形式が不正 ($ver)"
+        invalid_versions=1
       fi
-    done <<< "$registry_versions"
-    
-    if [ $inconsistent -eq 0 ]; then
-      log_pass "template-registry.json: 全バージョン一致 ($plugin_version)"
+    done < <(jq -r '.templates | to_entries[] | [.key, .value.templateVersion] | @tsv' "$REGISTRY_FILE")
+
+    if [ $invalid_versions -eq 0 ]; then
+      log_pass "template-registry.json: 全 templateVersion が SemVer 形式"
     fi
   else
     log_skip "template-registry.json: jq がないため検証スキップ"
   fi
-  
-  # テンプレートファイル内のバージョンチェック
+
+  # 主要テンプレートは、実ファイルの _harness_version と registry の templateVersion が一致すること。
   local md_templates=(
     "CLAUDE.md.template"
     "AGENTS.md.template"
     "Plans.md.template"
   )
-  
+
   for template in "${md_templates[@]}"; do
     local file="$TEMPLATES_DIR/$template"
     if [ -f "$file" ]; then
       local file_version
       file_version=$(grep "_harness_version:" "$file" | head -1 | sed 's/.*: *"//' | sed 's/".*//')
-      
-      if [ "$file_version" = "$plugin_version" ]; then
-        log_pass "$template: バージョン一致 ($file_version)"
+
+      local registry_version=""
+      if command -v jq >/dev/null 2>&1; then
+        registry_version=$(jq -r --arg template "$template" '.templates[$template].templateVersion // empty' "$REGISTRY_FILE" 2>/dev/null)
+      fi
+
+      if [ -n "$registry_version" ] && [ "$file_version" = "$registry_version" ]; then
+        log_pass "$template: registry とバージョン一致 ($file_version)"
       else
-        log_fail "$template: バージョン不一致 ($file_version != $plugin_version)"
+        log_fail "$template: registry とバージョン不一致 ($file_version != $registry_version)"
       fi
     fi
   done

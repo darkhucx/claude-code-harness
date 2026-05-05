@@ -3,6 +3,14 @@ name: harness-work
 description: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
 description-en: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
 description-ja: "HAR:Plans.md タスクを1件から全並列チーム実行まで担当。実装して、実行して、全部やって、breezing、チーム実行、parallel で起動。プランニング・レビュー・リリース・セットアップには使わない。"
+kind: workflow
+purpose: "Execute Plans.md tasks end to end through Codex-native tools"
+trigger: "implement, execute, do everything, breezing, team run, parallel"
+shape: workflow
+role: executor
+pair: harness-review
+owner: harness-core
+since: "2026-05-05"
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "spawn_agent", "send_input", "wait_agent", "close_agent"]
 argument-hint: "[all] [task-number|range] [--codex] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode]"
 effort: high
@@ -65,6 +73,26 @@ Harness の統合実行スキル。
 | `--no-tdd` | TDD フェーズスキップ | false |
 | `--no-simplify` | Auto-Refinement スキップ | false |
 | `--auto-mode` | Auto Mode rollout を明示。親セッションの permission mode が互換な場合のみ採用を検討 | false |
+
+## Progressive Disclosure
+
+まずこの本文で入口、自動選択、停止条件だけを確認する。
+詳細は必要になった時だけ読む。
+
+| 詳細 | 参照 |
+|---|---|
+| Codex native Solo / Parallel / Breezing の具体手順 | `references/execution-modes.md` |
+| companion review、Reviewer fallback、AI Residuals、修正ループ | `references/review-loop.md` |
+| 完了報告の生成 | `references/completion-report.md` |
+| テスト/CI 失敗時の再チケット化 | `references/failure-reticketing.md` |
+
+### 重要停止条件
+
+- `Plans.md` が旧フォーマットで DoD / Depends / Status を読めない時は停止する。
+- sprint-contract が required なのに ready でない時は実装に進まない。
+- critical / major review finding が残っている時は完了にしない。
+- テストを弱める、skip する、期待値を実装に合わせて緩める形では解決しない。
+- helper script は host project の `scripts/` ではなく `${HARNESS_PLUGIN_ROOT}/scripts/` から呼ぶ。
 
 > **Token Optimization (v2.1.69+)**: git 操作を伴わない軽量タスクでは
 > plugin settings の `includeGitInstructions: false` を有効にして

@@ -178,7 +178,7 @@ EOF
 }
 
 seed_memory_context
-init_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-init.sh")"
+init_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-init.sh" < /dev/null)"
 init_context="$(printf '%s' "${init_output}" | jq -r '.hookSpecificOutput.additionalContext')"
 
 grep -q 'Continuity Briefing' <<<"${init_context}" || {
@@ -197,7 +197,7 @@ grep -q 'Continuity Briefing' <<<"${init_context}" || {
 }
 
 seed_memory_context
-resume_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-resume.sh")"
+resume_output="$(cd "${TMP_DIR}" && bash "${TMP_DIR}/scripts/session-resume.sh" < /dev/null)"
 resume_context="$(printf '%s' "${resume_output}" | jq -r '.hookSpecificOutput.additionalContext')"
 
 grep -q 'Continuity Briefing' <<<"${resume_context}" || {

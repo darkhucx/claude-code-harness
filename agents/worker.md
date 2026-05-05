@@ -13,7 +13,6 @@ disallowedTools:
 model: claude-sonnet-4-6
 effort: medium
 maxTurns: 100
-permissionMode: bypassPermissions
 color: yellow
 memory: project
 isolation: worktree
@@ -27,13 +26,6 @@ initialPrompt: |
   推測で要件を足さない。未確認事項は "missing-input" として明示する。
 skills:
   - harness-work
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool.sh\""
-          timeout: 15
 ---
 
 # Worker Agent

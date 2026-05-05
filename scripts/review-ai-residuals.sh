@@ -4,6 +4,7 @@
 #
 # Usage:
 #   bash scripts/review-ai-residuals.sh --base-ref <git-ref>
+#   bash scripts/review-ai-residuals.sh --base-ref <git-ref> --include-untracked
 #   bash scripts/review-ai-residuals.sh path/to/file.ts path/to/config.sh
 #
 # Exit:
@@ -20,6 +21,7 @@ Usage:
 
 Options:
   --base-ref <git-ref>  git diff で変更ファイルを自動収集する
+  --include-untracked   git diff には出ない untracked files も走査する
   --help                このヘルプを表示する
 
 Output:
@@ -28,7 +30,9 @@ Output:
     "tool": "review-ai-residuals",
     "scan_mode": "diff|files",
     "base_ref": "HEAD~1" | null,
+    "include_untracked": false,
     "files_scanned": ["src/app.ts"],
+    "untracked_files_scanned": [],
     "summary": {
       "verdict": "APPROVE|REQUEST_CHANGES",
       "major": 0,
@@ -121,12 +125,13 @@ SEARCH_TOOL=""
 if command -v rg >/dev/null 2>&1; then
   SEARCH_TOOL="rg"
 else
-  echo '{"tool":"review-ai-residuals","scan_mode":"files","base_ref":null,"files_scanned":[],"summary":{"verdict":"APPROVE","major":0,"minor":0,"recommendation":0,"total":0},"observations":[],"warning":"rg_not_found"}'
+  echo '{"tool":"review-ai-residuals","scan_mode":"files","base_ref":null,"include_untracked":false,"files_scanned":[],"untracked_files_scanned":[],"summary":{"verdict":"APPROVE","major":0,"minor":0,"recommendation":0,"total":0},"observations":[],"warning":"rg_not_found"}'
   exit 0
 fi
 
 SCAN_MODE="files"
 BASE_REF_INPUT=""
+INCLUDE_UNTRACKED=0
 POSITIONAL_FILES=()
 
 while [ $# -gt 0 ]; do
@@ -140,6 +145,10 @@ while [ $# -gt 0 ]; do
       SCAN_MODE="diff"
       BASE_REF_INPUT="$2"
       shift 2
+      ;;
+    --include-untracked)
+      INCLUDE_UNTRACKED=1
+      shift
       ;;
     --help|-h)
       usage
@@ -174,10 +183,11 @@ if [ "$SCAN_MODE" = "files" ] && [ ${#POSITIONAL_FILES[@]} -eq 0 ]; then
 fi
 
 TMP_FILES="$(mktemp)"
+TMP_UNTRACKED_FILES="$(mktemp)"
 TMP_OBS="$(mktemp)"
 TMP_DIFF="$(mktemp)"
 cleanup() {
-  rm -f "$TMP_FILES" "$TMP_OBS" "$TMP_DIFF"
+  rm -f "$TMP_FILES" "$TMP_UNTRACKED_FILES" "$TMP_OBS" "$TMP_DIFF"
 }
 trap cleanup EXIT
 
@@ -189,6 +199,13 @@ collect_diff_files() {
   git diff --name-only --diff-filter=ACMR "$base_ref" -- 2>/dev/null || return 1
 }
 
+collect_untracked_files() {
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 1
+  fi
+  git ls-files --others --exclude-standard 2>/dev/null || return 1
+}
+
 queue_file_if_scannable() {
   local path="$1"
   path="${path#./}"
@@ -196,6 +213,16 @@ queue_file_if_scannable() {
   should_ignore_path "$path" && return 0
   is_scannable_file "$path" || return 0
   printf '%s\n' "$path" >> "$TMP_FILES"
+}
+
+queue_untracked_file_if_scannable() {
+  local path="$1"
+  path="${path#./}"
+  [ -f "$path" ] || return 0
+  should_ignore_path "$path" && return 0
+  is_scannable_file "$path" || return 0
+  printf '%s\n' "$path" >> "$TMP_FILES"
+  printf '%s\n' "$path" >> "$TMP_UNTRACKED_FILES"
 }
 
 if [ "$SCAN_MODE" = "diff" ]; then
@@ -210,7 +237,16 @@ else
   done
 fi
 
+if [ "$INCLUDE_UNTRACKED" -eq 1 ]; then
+  if collect_untracked_files >"$TMP_DIFF" 2>/dev/null; then
+    while IFS= read -r path; do
+      queue_untracked_file_if_scannable "$path"
+    done < "$TMP_DIFF"
+  fi
+fi
+
 sort -u "$TMP_FILES" -o "$TMP_FILES"
+sort -u "$TMP_UNTRACKED_FILES" -o "$TMP_UNTRACKED_FILES"
 
 MAJOR_COUNT=0
 MINOR_COUNT=0
@@ -290,7 +326,9 @@ printf '{'
 printf '"tool":"review-ai-residuals",'
 printf '"scan_mode":"%s",' "$(json_escape "$SCAN_MODE")"
 printf '"base_ref":%s,' "$BASE_REF_JSON"
+printf '"include_untracked":%s,' "$([ "$INCLUDE_UNTRACKED" -eq 1 ] && printf true || printf false)"
 printf '"files_scanned":%s,' "$(append_json_string_array "$TMP_FILES")"
+printf '"untracked_files_scanned":%s,' "$(append_json_string_array "$TMP_UNTRACKED_FILES")"
 printf '"summary":{"verdict":"%s","major":%s,"minor":%s,"recommendation":%s,"total":%s},' \
   "$VERDICT" \
   "$MAJOR_COUNT" \

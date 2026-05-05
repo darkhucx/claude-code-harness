@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Chachamaru127/claude-code-harness/go/internal/harnessmem"
 )
 
 // setupInput は Setup フックの stdin JSON ペイロード。
@@ -219,6 +221,18 @@ func runSetupInit(out io.Writer, scriptDir string, simpleMode bool) error {
 	// 6. テンプレートトラッカーの初期化
 	runTemplateTracker(scriptDir, "init")
 
+	// 7. harness-mem managed companion の自動セットアップ。
+	// 失敗しても Harness 本体の Setup hook は止めない。
+	if result := harnessmem.AutoSetupFromSetupHook(harnessMemAutoSetupMarkerPath()); result.Attempted {
+		if result.Ready {
+			messages = append(messages, "harness-mem companion setup complete")
+		} else {
+			messages = append(messages, "harness-mem companion setup deferred")
+		}
+	} else if result.Ready {
+		messages = append(messages, "harness-mem companion ready")
+	}
+
 	// SIMPLE モード警告を追加
 	if simpleMode {
 		messages = append(messages, "WARNING: CLAUDE_CODE_SIMPLE mode — skills/agents/memory disabled, hooks only")
@@ -228,6 +242,11 @@ func runSetupInit(out io.Writer, scriptDir string, simpleMode bool) error {
 		return writeSetupOutput(out, "[Setup:init] ハーネスは既に初期化済みです")
 	}
 	return writeSetupOutput(out, "[Setup:init] "+strings.Join(messages, ", "))
+}
+
+func harnessMemAutoSetupMarkerPath() string {
+	projectRoot := resolveProjectRoot()
+	return filepath.Join(projectRoot, ".claude", "state", "harness-mem-companion-setup.json")
 }
 
 // runSetupMaintenance は maintenance モードの処理を実行する。

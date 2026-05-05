@@ -3,12 +3,18 @@ package hookhandler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Setenv("CLAUDE_CODE_HARNESS_MEM_AUTO_SETUP", "0")
+	os.Exit(m.Run())
+}
 
 // assertSetupOutput は Setup フックのレスポンスを検証するヘルパー。
 func assertSetupOutput(t *testing.T, output, wantSubstr string) {
@@ -103,6 +109,61 @@ func TestHandleSetupHookInit_AlreadyInitialized(t *testing.T) {
 	}
 
 	assertSetupOutput(t, out.String(), "[Setup:init]")
+}
+
+func TestHandleSetupHookInit_HarnessMemAutoSetupDisabledSilentSkip(t *testing.T) {
+	dir := t.TempDir()
+	origWD, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origWD)
+
+	fake, logPath := writeSetupFakeHarnessMem(t, "red")
+	t.Setenv("HARNESS_MEM_CLI", fake)
+	t.Setenv("CLAUDE_CODE_HARNESS_MEM_AUTO_SETUP", "0")
+
+	var out bytes.Buffer
+	if err := HandleSetupHookInit(strings.NewReader(""), &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(logPath); err == nil {
+		t.Fatalf("auto setup should not call harness-mem when disabled")
+	}
+}
+
+func TestHandleSetupHookInit_HarnessMemAutoSetupOnce(t *testing.T) {
+	dir := t.TempDir()
+	origWD, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origWD)
+
+	fake, logPath := writeSetupFakeHarnessMem(t, "red")
+	t.Setenv("HARNESS_MEM_CLI", fake)
+	t.Setenv("CLAUDE_CODE_HARNESS_MEM_AUTO_SETUP", "1")
+
+	var out bytes.Buffer
+	if err := HandleSetupHookInit(strings.NewReader(""), &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "harness-mem companion setup complete") {
+		t.Fatalf("setup output should mention companion setup completion, got: %s", out.String())
+	}
+
+	out.Reset()
+	if err := HandleSetupHookInit(strings.NewReader(""), &out); err != nil {
+		t.Fatalf("unexpected second run error: %v", err)
+	}
+
+	logData, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(logData), "setup --platform codex,claude --skip-quality --auto-update enable"); got != 1 {
+		t.Fatalf("setup should be attempted exactly once, got %d\nlog:\n%s", got, string(logData))
+	}
 }
 
 func TestHandleSetupHookMaintenance_EmptyInput(t *testing.T) {
@@ -353,3 +414,39 @@ func TestResolveSetupScriptDir_CWDFallback(t *testing.T) {
 
 // time パッケージを setup_hook_test.go でも使用するため
 var _ = time.Now
+
+func writeSetupFakeHarnessMem(t *testing.T, mode string) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "calls.log")
+	scriptPath := filepath.Join(dir, "harness-mem")
+	script := fmt.Sprintf(`#!/bin/sh
+set -eu
+printf '%%s\n' "$*" >> %q
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  doctor)
+    case %q in
+      healthy)
+        printf '%%s\n' '{"status":"healthy","all_green":true,"failed_count":0,"checked_count":1,"timestamp":"2026-05-05T00:00:00Z","checks":[],"fix_command":"harness-mem doctor --fix","backend_mode":"local","contract_version":"claude-harness-companion.v1","harness_mem_version":"0.0.0-test"}'
+        ;;
+      red)
+        printf '%%s\n' '{"status":"unhealthy","all_green":false,"failed_count":1,"checked_count":1,"timestamp":"2026-05-05T00:00:00Z","checks":[{"name":"codex_wiring","status":"missing","fix":"harness-mem setup --platform codex"}],"fix_command":"harness-mem doctor --fix","backend_mode":"local","contract_version":"claude-harness-companion.v1","harness_mem_version":"0.0.0-test"}'
+        ;;
+    esac
+    ;;
+  setup)
+    printf 'setup-ok\n'
+    ;;
+  *)
+    printf 'unknown command: %%s\n' "$cmd" >&2
+    exit 2
+    ;;
+esac
+`, logPath, mode)
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return scriptPath, logPath
+}

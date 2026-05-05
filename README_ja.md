@@ -351,12 +351,22 @@ claude-code-harness/
 
 ### Session Memory（harness-mem）
 
-[harness-mem](https://github.com/Chachamaru127/harness-mem) が動いていれば、Harness がセッション中のイベント — 作業内容、使ったツール、セッションの終わり方 — を自動記録します。次回のセッション開始時にそのコンテキストが検索・取得できます。
+Harness は [harness-mem](https://github.com/Chachamaru127/harness-mem) を managed companion として扱います。つまり、記憶ランタイム本体は harness-mem が持ち、Claude-harness は導入・状態表示・hook 配線を担当します。plugin `Setup:init` では Claude Code / Codex 向けに自動セットアップできますが、通常の `SessionStart` ではセットアップを走らせません。
 
 - **harness-mem なし**: イベントは `.claude/state/memory-bridge-events.jsonl` にローカル記録（外部依存ゼロ）
 - **harness-mem あり**: イベントがメモリサーバーにも送信され、セッション横断の検索・取得が可能に
 
-設定不要 — Harness が harness-mem を自動検知します。
+よく使う操作:
+
+```bash
+harness mem status
+harness mem setup
+harness mem doctor --json
+harness mem off
+harness mem purge --confirm-purge
+```
+
+自動セットアップは既定で有効です。止めたい場合は `CLAUDE_CODE_HARNESS_MEM_AUTO_SETUP=0` を使います。記憶データは harness-mem 標準のローカル場所（`~/.harness-mem/runtime/harness-mem` と `~/.harness-mem/harness-mem.db`）に保存されます。`purge` は必ず明示確認が必要です。
 
 <details>
 <summary><strong>Codex エンジン</strong></summary>

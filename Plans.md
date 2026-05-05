@@ -218,3 +218,17 @@ Purpose: `masao0501.md` の Skill 設計論を参考に、Claude Code 側と Cod
 | 59.3.1 | Skill design contract の CI gate を追加する。`scripts/ci/check-consistency.sh` または新規 `tests/test-skill-design-contract.sh` で、core skill の metadata 必須、`base` 参照先存在、`pair` 参照先存在、`shape: wrap` と `base` の同時指定、`role: evaluator` の read-only / fork / reviewer contract を検出する | (a) core skill metadata 欠落で fail する test がある、(b) 存在しない `base` / `pair` を検出する、(c) `shape: wrap` なのに `base` が無い場合 fail、(d) evaluator role の Write/Edit 許可や同一コンテキスト評価を検出または明示例外にする、(e) `bash scripts/ci/check-consistency.sh` の本線または validate-plugin 経路で実行される | 59.1.3, 59.2.3 | cc:完了 |
 | 59.3.2 | AI Residuals の untracked file 走査を Skill 本文から script へ移す。`skills/harness-review/SKILL.md` に残る手動 grep 手順を薄くし、`scripts/review-ai-residuals.sh --include-untracked` などの決定論的 CLI オプションとして実装する。Claude 側・Codex 側とも同じ JSON を読む | (a) `scripts/review-ai-residuals.sh --include-untracked` が untracked files を含む JSON を返す、(b) test が tracked diff / untracked file の両方を検証、(c) `harness-review` 本文は JSON の解釈と severity 判定に集中し、長い grep パターンを保持しない、(d) Codex mirror も同じ script 契約を参照、(e) `bash tests/test-generate-skill-manifest.sh`, `bash tests/validate-skills.sh`, review residuals test が PASS | 59.2.1 | cc:完了 |
 | 59.3.3 | Phase 59 の Claude / Codex 両面 closeout を行う。実装後に Claude plugin surface、Codex package surface、OpenCode mirror、local `.agents` mirror の差分をまとめて検証し、CHANGELOG と必要 docs に user-facing な改善点を追記する | (a) `bash scripts/sync-skill-mirrors.sh --check` PASS、(b) `bash tests/test-generate-skill-manifest.sh` PASS、(c) `bash tests/validate-skills.sh` PASS、(d) `bash tests/test-codex-package.sh` PASS、(e) `./tests/validate-plugin.sh` PASS、(f) `bash scripts/ci/check-consistency.sh` PASS、(g) `CHANGELOG.md` `[Unreleased]` に Claude / Codex 両方で Skill orchestration contract が強化されたことが記録される | 59.3.1, 59.3.2 | cc:完了 |
+
+---
+
+## Phase 60: harness-mem managed companion 化 [P0]
+
+Purpose: Claude-harness は harness-mem を内蔵せず、managed companion として自動導入・状態表示・hook 配線だけを担当する。harness-mem 側は記憶ランタイム、DB、daemon、doctor、migration を所有し、Claude-harness は DB schema を直接読まない。
+
+| Task | 内容 | DoD | Depends | Status |
+|------|------|-----|---------|--------|
+| 60.1 | `docs/harness-mem-companion-contract.md` を作成し、責務分担、標準パス、CLI 契約、doctor JSON、off/purge 動作を固定する | docs に Claude-harness owns orchestration / harness-mem owns runtime が明記され、DB 直接参照禁止も記載 | - | cc:完了 |
+| 60.2 | `harness mem` サブコマンドを `health` から `status/setup/update/doctor/off/purge` へ拡張する | `go test ./go/cmd/harness -run Mem` が PASS、既存 `mem health` 互換も維持 | 60.1 | cc:完了 |
+| 60.3 | Setup hook に自動 companion setup を追加する | 未導入時だけ `npx -y --package @chachamaru127/harness-mem harness-mem setup --platform codex,claude --skip-quality --auto-update enable` 相当を一度だけ実行し、失敗しても Harness 本体は止まらない | 60.2, harness-mem §106.1 | cc:完了 |
+| 60.4 | fake harness-mem で companion lifecycle test を追加する | status/setup/doctor/update/off/purge の成功・未導入・doctor 赤・JSON 破損・silent skip を実 daemon なしで検証 | 60.2 | cc:完了 |
+| 60.5 | README/README_ja/CHANGELOG に managed companion UX を反映する | 「設定不要で自動セットアップ」「off/purge」「ローカル保存」「自動更新」の説明が英日同期 | 60.3 | cc:完了 |

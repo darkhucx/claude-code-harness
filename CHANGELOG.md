@@ -6,6 +6,14 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### Added
+
+- Added managed companion controls for harness-mem: `harness mem status|setup|update|doctor|off|purge`, plus a companion contract doc that fixes ownership, paths, doctor JSON fields, and safe purge behavior.
+
+### Changed
+
+- Plugin `Setup:init` now attempts one non-blocking harness-mem setup for Claude Code + Codex by default. `SessionStart` never runs setup, and `CLAUDE_CODE_HARNESS_MEM_AUTO_SETUP=0` disables the automatic attempt.
+
 ## [4.6.1] - 2026-05-05
 
 ### Fixed

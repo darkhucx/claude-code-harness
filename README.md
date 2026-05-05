@@ -356,12 +356,22 @@ Run entire task lists with autonomous agent teams:
 
 ### Session Memory (harness-mem)
 
-When [harness-mem](https://github.com/Chachamaru127/harness-mem) is running, Harness automatically records session events — what you worked on, what tools were used, and how the session ended. Next time you start a session, that context is available for retrieval.
+Harness treats [harness-mem](https://github.com/Chachamaru127/harness-mem) as a managed companion. On plugin `Setup:init`, Harness can set up harness-mem automatically for Claude Code and Codex; normal `SessionStart` hooks only use the existing wiring and never run setup.
 
 - **Without harness-mem**: events are logged locally to `.claude/state/memory-bridge-events.jsonl` (no external dependency)
 - **With harness-mem**: events are also sent to the memory server for cross-session search and retrieval
 
-No configuration needed — Harness detects harness-mem automatically.
+Useful controls:
+
+```bash
+harness mem status
+harness mem setup
+harness mem doctor --json
+harness mem off
+harness mem purge --confirm-purge
+```
+
+Auto setup is on by default and can be disabled with `CLAUDE_CODE_HARNESS_MEM_AUTO_SETUP=0`. Local memory stays in harness-mem's standard local paths (`~/.harness-mem/runtime/harness-mem` and `~/.harness-mem/harness-mem.db`). `purge` always requires explicit confirmation.
 
 <details>
 <summary><strong>Codex Engine</strong></summary>

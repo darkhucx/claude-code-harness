@@ -6,6 +6,12 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+## [4.6.1] - 2026-05-05
+
+### Fixed
+
+- OpenCode generation now includes the supported `breezing` skill, keeping generated OpenCode bundles aligned with skill mirror sync and CI.
+
 ## [4.6.0] - 2026-05-05
 
 ### Added
@@ -3731,7 +3737,8 @@ Purpose: 自己修正ループ失敗時に「止まるだけ」から「次の�
 
 For v2.9.x and earlier, see [GitHub Releases](https://github.com/Chachamaru127/claude-code-harness/releases).
 
-[Unreleased]: https://github.com/Chachamaru127/claude-code-harness/compare/v4.6.0...HEAD
+[Unreleased]: https://github.com/Chachamaru127/claude-code-harness/compare/v4.6.1...HEAD
+[4.6.1]: https://github.com/Chachamaru127/claude-code-harness/compare/v4.6.0...v4.6.1
 [4.6.0]: https://github.com/Chachamaru127/claude-code-harness/compare/v4.5.4...v4.6.0
 [4.5.4]: https://github.com/Chachamaru127/claude-code-harness/compare/v4.5.3...v4.5.4
 [4.5.3]: https://github.com/Chachamaru127/claude-code-harness/compare/v4.5.2...v4.5.3

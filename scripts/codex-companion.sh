@@ -163,6 +163,234 @@ run_structured_task_exec() {
   exec codex exec "${passthrough[@]}"
 }
 
+# ---- auth サブコマンド ----
+# codex-plugin-cc がインストールされていなくても動作するよう、
+# companion 検索ブロックの前に early-exit で処理する。
+
+CODEX_CONFIG_DIR="${HOME}/.codex"
+CODEX_CONFIG_FILE="${CODEX_CONFIG_DIR}/config.toml"
+
+_auth_read_key() {
+  # config.toml から api_key の値を返す。未設定なら空文字列。
+  if [ ! -f "${CODEX_CONFIG_FILE}" ]; then
+    printf ''
+    return 0
+  fi
+  grep -E '^[[:space:]]*api_key[[:space:]]*=' "${CODEX_CONFIG_FILE}" \
+    | head -1 \
+    | sed 's/^[[:space:]]*api_key[[:space:]]*=[[:space:]]*//' \
+    | sed 's/^"//' \
+    | sed 's/"[[:space:]]*$//'
+}
+
+_auth_write_key() {
+  local new_key="$1"
+  mkdir -p "${CODEX_CONFIG_DIR}"
+
+  if [ ! -f "${CODEX_CONFIG_FILE}" ]; then
+    # ファイルが存在しない場合は新規作成
+    printf '[openai]\napi_key = "%s"\n' "${new_key}" > "${CODEX_CONFIG_FILE}"
+  else
+    # 既存ファイルを安全に書き換える（temp ファイル経由）
+    local tmp_file
+    tmp_file="$(mktemp "${CODEX_CONFIG_DIR}/.config.toml.XXXXXX")"
+
+    local in_openai_section=0
+    local key_written=0
+
+    while IFS= read -r line || [ -n "${line}" ]; do
+      # セクションヘッダの検出
+      if printf '%s\n' "${line}" | grep -qE '^\['; then
+        # [openai] セクションを抜けるとき、まだ書いていなければ書く
+        if [ "${in_openai_section}" -eq 1 ] && [ "${key_written}" -eq 0 ]; then
+          printf 'api_key = "%s"\n' "${new_key}" >> "${tmp_file}"
+          key_written=1
+        fi
+        if printf '%s\n' "${line}" | grep -qE '^\[openai\]'; then
+          in_openai_section=1
+        else
+          in_openai_section=0
+        fi
+        printf '%s\n' "${line}" >> "${tmp_file}"
+        continue
+      fi
+
+      # [openai] セクション内の api_key 行を置換
+      if [ "${in_openai_section}" -eq 1 ] && \
+         printf '%s\n' "${line}" | grep -qE '^[[:space:]]*api_key[[:space:]]*='; then
+        printf 'api_key = "%s"\n' "${new_key}" >> "${tmp_file}"
+        key_written=1
+        continue
+      fi
+
+      printf '%s\n' "${line}" >> "${tmp_file}"
+    done < "${CODEX_CONFIG_FILE}"
+
+    # ファイル末尾まで読んで [openai] セクションにいた場合
+    if [ "${in_openai_section}" -eq 1 ] && [ "${key_written}" -eq 0 ]; then
+      printf 'api_key = "%s"\n' "${new_key}" >> "${tmp_file}"
+      key_written=1
+    fi
+
+    # [openai] セクション自体が存在しなかった場合は末尾に追記
+    if [ "${key_written}" -eq 0 ]; then
+      printf '\n[openai]\napi_key = "%s"\n' "${new_key}" >> "${tmp_file}"
+    fi
+
+    mv "${tmp_file}" "${CODEX_CONFIG_FILE}"
+  fi
+
+  chmod 600 "${CODEX_CONFIG_FILE}"
+}
+
+_auth_remove_key() {
+  if [ ! -f "${CODEX_CONFIG_FILE}" ]; then
+    echo "INFO: ${CODEX_CONFIG_FILE} が存在しません。" >&2
+    return 0
+  fi
+
+  local tmp_file
+  tmp_file="$(mktemp "${CODEX_CONFIG_DIR}/.config.toml.XXXXXX")"
+
+  local in_openai_section=0
+  local section_line_count=0
+  local pending_section_header=""
+
+  while IFS= read -r line || [ -n "${line}" ]; do
+    # セクションヘッダの検出
+    if printf '%s\n' "${line}" | grep -qE '^\['; then
+      # 前の [openai] セクションが空だった場合はヘッダも出力しない
+      if [ "${in_openai_section}" -eq 1 ] && [ "${section_line_count}" -eq 0 ]; then
+        pending_section_header=""
+      elif [ -n "${pending_section_header}" ]; then
+        printf '%s\n' "${pending_section_header}" >> "${tmp_file}"
+        pending_section_header=""
+      fi
+
+      if printf '%s\n' "${line}" | grep -qE '^\[openai\]'; then
+        in_openai_section=1
+        section_line_count=0
+        pending_section_header="${line}"
+      else
+        in_openai_section=0
+        pending_section_header=""
+        printf '%s\n' "${line}" >> "${tmp_file}"
+      fi
+      continue
+    fi
+
+    # [openai] セクション内の api_key 行はスキップ（削除）
+    if [ "${in_openai_section}" -eq 1 ] && \
+       printf '%s\n' "${line}" | grep -qE '^[[:space:]]*api_key[[:space:]]*='; then
+      continue
+    fi
+
+    # 空行や他のキーは残す
+    if [ "${in_openai_section}" -eq 1 ]; then
+      # 空行以外があればセクションは空でない
+      if printf '%s\n' "${line}" | grep -qE '[^[:space:]]'; then
+        if [ -n "${pending_section_header}" ]; then
+          printf '%s\n' "${pending_section_header}" >> "${tmp_file}"
+          pending_section_header=""
+        fi
+        section_line_count=$((section_line_count + 1))
+      fi
+      printf '%s\n' "${line}" >> "${tmp_file}"
+    else
+      printf '%s\n' "${line}" >> "${tmp_file}"
+    fi
+  done < "${CODEX_CONFIG_FILE}"
+
+  # ファイル末尾での後処理
+  if [ "${in_openai_section}" -eq 1 ] && [ "${section_line_count}" -eq 0 ]; then
+    : # 空になった [openai] セクションのヘッダは出力しない（pending のまま）
+  elif [ -n "${pending_section_header}" ]; then
+    printf '%s\n' "${pending_section_header}" >> "${tmp_file}"
+  fi
+
+  mv "${tmp_file}" "${CODEX_CONFIG_FILE}"
+  chmod 600 "${CODEX_CONFIG_FILE}"
+}
+
+cmd_auth() {
+  local subcmd="${1:-}"
+
+  case "${subcmd}" in
+    status)
+      local key
+      key="$(_auth_read_key)"
+      if [ -z "${key}" ]; then
+        echo "API Key: not configured"
+      else
+        local last4="${key: -4}"
+        local mtime=""
+        if [ -f "${CODEX_CONFIG_FILE}" ]; then
+          mtime="$(date -r "${CODEX_CONFIG_FILE}" '+%Y-%m-%d' 2>/dev/null || \
+                   stat -c '%y' "${CODEX_CONFIG_FILE}" 2>/dev/null | cut -d' ' -f1 || \
+                   echo "unknown")"
+        fi
+        echo "API Key: configured (****${last4}, saved ${mtime})"
+      fi
+      return 0
+      ;;
+
+    logout)
+      local key
+      key="$(_auth_read_key)"
+      if [ -z "${key}" ]; then
+        echo "API Key は設定されていません。"
+        return 0
+      fi
+      _auth_remove_key
+      echo "✓ API Key を削除しました。"
+      return 0
+      ;;
+
+    "")
+      # インタラクティブ入力で API Key を設定
+      local existing_key
+      existing_key="$(_auth_read_key)"
+      if [ -n "${existing_key}" ]; then
+        local last4="${existing_key: -4}"
+        printf 'API Key はすでに設定されています (****%s)。上書きしますか? [y/N] ' "${last4}"
+        local answer
+        read -r answer
+        case "${answer}" in
+          y|Y|yes|YES) ;;
+          *) echo "キャンセルしました。"; return 0 ;;
+        esac
+      fi
+
+      printf 'OpenAI API Key を入力してください: '
+      local new_key=""
+      read -rs new_key
+      printf '\n'
+
+      if [ -z "${new_key}" ]; then
+        echo "ERROR: API Key が空です。" >&2
+        return 1
+      fi
+
+      _auth_write_key "${new_key}"
+      echo "✓ API Key を ~/.codex/config.toml に保存しました。"
+      return 0
+      ;;
+
+    *)
+      echo "Usage: bash scripts/codex-companion.sh auth [status|logout]" >&2
+      return 1
+      ;;
+  esac
+}
+
+# auth サブコマンドの early-exit dispatch
+SUBCOMMAND_EARLY="${1:-}"
+if [ "${SUBCOMMAND_EARLY}" = "auth" ]; then
+  shift || true
+  cmd_auth "${1:-}"
+  exit $?
+fi
+
 # 公式プラグインの companion を検索
 # Claude/Codex どちらの plugin ディレクトリでも見つかるようにし、
 # cache と marketplace 配下の両方を対象にする。

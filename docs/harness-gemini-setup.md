@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |---|---|
-| 文档版本 | v2.0 |
+| 文档版本 | v3.0 |
 | 更新日期 | 2026-05-07 |
 | 适用插件版本 | darkhucx/claude-code-harness `feat/zh-i18n-on-v4.7`（v4.7.0） |
 | 基于原版 | Chachamaru127/claude-code-harness v4.7.0 |
@@ -21,13 +21,17 @@ darkhucx/claude-code-harness 在原版基础上新增了两大功能：
 |---|---|---|
 | `--codex` 委托执行 | ✅ | ✅ |
 | `--gemini` 委托执行 | ❌ | ✅ |
+| `--ollama` 本地模型委托 | ❌ | ✅ |
 | Gemini adversarial review | ❌ | ✅ |
 | effort → thinking 自动映射 | ❌ | ✅ |
+| Codex 交互式认证（`auth` 命令） | ❌ | ✅ |
+| 任务复杂度自动路由（score-task） | ❌ | ✅ |
 | `--codex` + `--gemini` 同时使用 | — | ❌（互斥） |
 
 新增文件：
 - `scripts/gemini-companion.sh` — Gemini 委托代理（核心）
 - `scripts/gemini-review-extract.sh` — review 结果 JSON 提取/规范化
+- `scripts/ollama-companion.sh` — Ollama 本地模型代理（OpenAI 兼容）
 
 ### 1.2 中文（zh）国际化支持（v4.7.0 新增）
 
@@ -112,19 +116,19 @@ find ~/.claude/plugins -name "gemini-companion.mjs" 2>/dev/null
 
 **Step 2：手动安装 fork 新增脚本**
 
-此 fork 暂未发布到官方 marketplace，需手动覆盖两个脚本：
+此 fork 暂未发布到官方 marketplace，需手动下载以下脚本：
 
 ```bash
-# 下载 Gemini companion 脚本
-curl -fsSL \
-  "https://raw.githubusercontent.com/darkhucx/claude-code-harness/feat/zh-i18n-on-v4.7/scripts/gemini-companion.sh" \
-  -o scripts/gemini-companion.sh
+FORK_RAW="https://raw.githubusercontent.com/darkhucx/claude-code-harness/feat/zh-i18n-on-v4.7/scripts"
 
-curl -fsSL \
-  "https://raw.githubusercontent.com/darkhucx/claude-code-harness/feat/zh-i18n-on-v4.7/scripts/gemini-review-extract.sh" \
-  -o scripts/gemini-review-extract.sh
+# Gemini companion
+curl -fsSL "$FORK_RAW/gemini-companion.sh"        -o scripts/gemini-companion.sh
+curl -fsSL "$FORK_RAW/gemini-review-extract.sh"   -o scripts/gemini-review-extract.sh
 
-chmod +x scripts/gemini-companion.sh scripts/gemini-review-extract.sh
+# Ollama companion（本地 AI 支持）
+curl -fsSL "$FORK_RAW/ollama-companion.sh"         -o scripts/ollama-companion.sh
+
+chmod +x scripts/gemini-companion.sh scripts/gemini-review-extract.sh scripts/ollama-companion.sh
 ```
 
 **Step 3：安装 gemini-plugin-cc**
@@ -280,7 +284,143 @@ bash scripts/gemini-companion.sh cancel <job-id>
 
 ---
 
-## 6. 常见问题排查
+## 6. Codex 认证配置
+
+原版 harness 需要用户手动编辑 `~/.codex/config.toml` 写入 API Key。此 fork 新增了 `auth` 子命令，提供类似 `gemini auth` 的交互式体验。
+
+### 6.1 交互式设置 API Key
+
+```bash
+bash scripts/codex-companion.sh auth
+# 提示：OpenAI API Key を入力してください:（输入时不显示字符）
+# 成功：✓ API Key を ~/.codex/config.toml に保存しました。
+```
+
+- Key 写入 `~/.codex/config.toml`，文件权限自动设为 `600`
+- 若已有 Key，会提示是否覆盖：`API Key はすでに設定されています (****XXXX). 上書きしますか? [y/N]`
+
+### 6.2 查看认证状态
+
+```bash
+bash scripts/codex-companion.sh auth status
+# 已配置：API Key: configured (****1234, saved 2026-05-07)
+# 未配置：API Key: not configured
+```
+
+### 6.3 删除 API Key
+
+```bash
+bash scripts/codex-companion.sh auth logout
+# ✓ API Key を削除しました。
+```
+
+### 6.4 与原版手动配置的兼容性
+
+`auth` 命令直接读写 `~/.codex/config.toml`，与 Codex CLI 原生格式完全兼容。若已手动配置过，`auth status` 可正常显示现有 Key 的末尾 4 位。
+
+---
+
+## 7. 本地 AI（Ollama / 局域网 OpenAI 兼容接口）
+
+### 7.1 适用场景
+
+| 任务类型 | 推荐引擎 |
+|---|---|
+| 添加字段、改配置、补翻译 | ✅ Ollama（本地，免费） |
+| 生成 commit message | ✅ Ollama |
+| 复杂重构、安全审查、架构设计 | ❌ Codex/Claude（云端） |
+
+`score-task` 命令可自动判断：
+
+```bash
+bash scripts/ollama-companion.sh score-task "add description-zh to SKILL.md"
+# → {"score": 0, "engine": "ollama", "threshold": 3, "reason": "low complexity"}
+
+bash scripts/ollama-companion.sh score-task "critical security migration for all production database tables"
+# → {"score": 4, "engine": "codex", "threshold": 3, "reason": "high complexity"}
+```
+
+### 7.2 前置条件
+
+```bash
+# 1. 安装 Ollama
+# macOS: brew install ollama
+# Linux: curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. 启动 Ollama 服务
+ollama serve   # 前台运行，或通过系统服务启动
+
+# 3. 拉取推荐模型（二选一）
+ollama pull qwen2.5-coder:7b   # 推荐：代码能力强，7B 参数，约 4GB
+ollama pull llama3.1:8b        # 备选：通用能力强
+
+# 4. 验证
+bash scripts/ollama-companion.sh status
+# ✓ Ollama is running
+```
+
+### 7.3 基本使用
+
+```bash
+# 委托任务（默认模型 qwen2.5-coder:7b）
+bash scripts/ollama-companion.sh task "给 harness-work/SKILL.md 加一行 description-zh 字段"
+
+# 指定模型
+bash scripts/ollama-companion.sh task --model llama3.1:8b "用中文解释这段代码的作用"
+
+# 查看已安装模型
+bash scripts/ollama-companion.sh models
+# qwen2.5-coder:7b
+# llama3.1:8b
+
+# 通过 harness-work 调用
+/harness-work 64.1 --ollama
+/harness-work all --ollama   # 所有任务走本地 AI
+```
+
+### 7.4 局域网部署（自定义端口/服务器）
+
+如果 Ollama 部署在局域网其他机器或使用非默认端口，通过环境变量指定：
+
+```bash
+# 局域网服务器
+export OLLAMA_BASE_URL="http://192.168.1.100:11434"
+
+# 自定义端口
+export OLLAMA_BASE_URL="http://localhost:8080"
+
+# 其他 OpenAI 兼容接口（如 LM Studio、vLLM、LocalAI）
+export OLLAMA_BASE_URL="http://localhost:1234"   # LM Studio 默认端口
+
+# 设置后，所有 ollama-companion.sh 命令自动使用此地址
+bash scripts/ollama-companion.sh status
+bash scripts/ollama-companion.sh task "your task"
+```
+
+也可以在项目根目录创建 `.env` 并在 shell 配置里 `source` 它，或写入 `.claude-code-harness.config.yaml`：
+
+```yaml
+# .claude-code-harness.config.yaml
+routing:
+  ollama_score_threshold: 3   # 分数 <= 3 自动走本地，> 3 走云端
+ollama:
+  base_url: "http://192.168.1.100:11434"
+  default_model: "qwen2.5-coder:7b"
+```
+
+### 7.5 score-task 自动路由阈值调整
+
+```bash
+# 查看当前阈值（默认 3）
+bash scripts/ollama-companion.sh score-task "your task"
+
+# 在 .claude-code-harness.config.yaml 里调高阈值，让更多任务走本地
+# routing.ollama_score_threshold: 5
+```
+
+---
+
+## 9. 常见问题排查
 
 ### 问题 1：`--gemini` 参数不生效 / 找不到脚本
 
@@ -369,27 +509,83 @@ ls scripts/i18n/set-locale.sh
 
 ---
 
-## 7. 当前项目状态核验
+### 问题 7：`⚠️ Ollama is not running`
+
+**症状**：`bash scripts/ollama-companion.sh status` 报错未运行。
+
+**原因**：Ollama 服务未启动，或 `OLLAMA_BASE_URL` 指向的地址不可达。
+
+**解决**：
+
+```bash
+# 本地启动
+ollama serve
+
+# 或检查局域网地址是否正确
+curl -s http://192.168.1.100:11434/api/tags | head -c 100
+```
+
+---
+
+### 问题 8：`ollama-companion.sh` 找不到
+
+**症状**：`no such file or directory: scripts/ollama-companion.sh`
+
+**原因**：未下载此 fork 新增的 companion 脚本。
+
+**解决**：按 [3.1 Step 2](#31-新项目完整安装推荐路径) 下载，或单独执行：
+
+```bash
+curl -fsSL \
+  "https://raw.githubusercontent.com/darkhucx/claude-code-harness/feat/zh-i18n-on-v4.7/scripts/ollama-companion.sh" \
+  -o scripts/ollama-companion.sh && chmod +x scripts/ollama-companion.sh
+```
+
+---
+
+### 问题 9：`codex auth` 命令不存在
+
+**症状**：`bash scripts/codex-companion.sh auth` 提示 subcommand 不识别。
+
+**原因**：使用的是原版 `codex-companion.sh`，未替换为此 fork 版本。
+
+**解决**：
+
+```bash
+curl -fsSL \
+  "https://raw.githubusercontent.com/darkhucx/claude-code-harness/feat/zh-i18n-on-v4.7/scripts/codex-companion.sh" \
+  -o scripts/codex-companion.sh && chmod +x scripts/codex-companion.sh
+```
+
+---
+
+## 10. 当前项目状态核验
 
 运行以下命令确认所有组件就绪：
 
 ```bash
 # Gemini companion
 bash scripts/gemini-companion.sh setup
-# 期望：CLI installed, authenticated, auth method: oauth-personal
+
+# Codex 认证状态
+bash scripts/codex-companion.sh auth status
+
+# Ollama 状态（可选，需本地或局域网 Ollama）
+bash scripts/ollama-companion.sh status
 
 # i18n 翻译完整性
 ./scripts/i18n/check-translations.sh
-# 期望：✓ All 92 files have translations
 
-# 验证中文切换（可选）
-./scripts/i18n/set-locale.sh zh && echo "✓ zh switch OK"
-./scripts/i18n/set-locale.sh en && echo "✓ en restore OK"
+# 验证中文切换
+./scripts/i18n/set-locale.sh zh && echo "✓ zh OK"
+./scripts/i18n/set-locale.sh en && echo "✓ en OK"
 ```
 
 | 组件 | 核验命令 | 期望结果 |
 |---|---|---|
 | `gemini-companion.sh` | `bash scripts/gemini-companion.sh setup` | CLI installed + authenticated |
+| `codex-companion.sh auth` | `bash scripts/codex-companion.sh auth status` | configured 或 not configured |
+| `ollama-companion.sh` | `bash scripts/ollama-companion.sh status` | ✓ Ollama is running（需启动 Ollama） |
 | `set-locale.sh` | `./scripts/i18n/set-locale.sh zh` | Updated: 92, Errors: 0 |
 | `check-translations.sh` | `./scripts/i18n/check-translations.sh` | All 92 files have translations |
 | Gemini OAuth | `gemini auth status` | authenticated: true |

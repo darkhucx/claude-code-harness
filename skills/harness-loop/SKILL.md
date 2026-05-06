@@ -3,6 +3,7 @@ name: harness-loop
 description: "Long-running task loop using /loop (Claude Code dynamic mode) and ScheduleWakeup to re-enter with fresh context on each wake-up. Internally invokes harness-work through Agent. Trigger: long-running, loop, wake-up, autonomous. Do NOT load for: one-shot task execution, review, release, planning."
 description-en: "Long-running task loop using /loop (Claude Code dynamic mode) and ScheduleWakeup to re-enter with fresh context on each wake-up. Internally invokes harness-work through Agent. Trigger: long-running, loop, wake-up, autonomous. Do NOT load for: one-shot task execution, review, release, planning."
 description-ja: "長時間タスクを /loop と ScheduleWakeup で wake-up 毎に fresh context で再入実行。harness-work を内部で Agent 呼び出し。長時間、ループ、loop、wake-up、autonomous に対応。"
+description-zh: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
 kind: workflow
 purpose: "Re-enter long-running Plans.md execution with fresh context"
 trigger: "long-running, loop, wake-up, autonomous"

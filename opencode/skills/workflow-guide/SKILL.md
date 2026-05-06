@@ -3,6 +3,7 @@ name: workflow-guide
 description: "Explicit helper for Cursor PM ↔ Claude Code two-agent workflow guidance. Do NOT load for: solo implementation, workflow setup, handoff execution, or general process coaching."
 description-en: "Explicit helper for Cursor PM ↔ Claude Code two-agent workflow guidance. Do NOT load for: solo implementation, workflow setup, handoff execution, or general process coaching."
 description-ja: "Cursor PM と Claude Code の2エージェント運用を説明する明示補助スキル。単独実装、ワークフロー設定、ハンドオフ実行、一般的な進め方相談には使わない。"
+description-zh: "提供 Cursor ↔ Claude Code 双 Agent 工作流的指引。在用户询问工作流、协作或流程时使用。不用于：实现工作、工作流配置或交接执行。"
 allowed-tools: ["Read"]
 user-invocable: false
 disable-model-invocation: true

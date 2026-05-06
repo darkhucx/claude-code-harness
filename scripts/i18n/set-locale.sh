@@ -1,10 +1,11 @@
 #!/bin/bash
 # set-locale.sh
-# Switch skill descriptions between English (default) and Japanese
+# Switch skill descriptions between English (default), Japanese, and Chinese.
 #
-# Usage: ./scripts/i18n/set-locale.sh [ja|en]
+# Usage: ./scripts/i18n/set-locale.sh [ja|en|zh]
 #
 # When 'ja': copies description-ja value into description field
+# When 'zh': copies description-zh value into description field (darkhucx fork opt-in)
 # When 'en': restores description to English default (from description-en backup)
 
 set -euo pipefail
@@ -20,11 +21,12 @@ NC='\033[0m'
 
 LOCALE="${1:-}"
 
-if [[ -z "$LOCALE" ]] || [[ "$LOCALE" != "ja" && "$LOCALE" != "en" ]]; then
-  echo "Usage: $0 [ja|en]"
+if [[ -z "$LOCALE" ]] || [[ "$LOCALE" != "ja" && "$LOCALE" != "en" && "$LOCALE" != "zh" ]]; then
+  echo "Usage: $0 [ja|en|zh]"
   echo ""
   echo "  ja  - Set skill descriptions to Japanese"
   echo "  en  - Set skill descriptions to English (default)"
+  echo "  zh  - Set skill descriptions to Chinese (darkhucx fork opt-in, Phase 62)"
   exit 1
 fi
 
@@ -114,22 +116,24 @@ process_skill_dir() {
     fi
 
     local relative_path="${skill_file#$PROJECT_ROOT/}"
-    local has_ja
-    has_ja=$(grep -c "^description-ja:" "$skill_file" 2>/dev/null || true)
 
-    if [[ "$has_ja" -eq 0 ]]; then
-      echo -e "  ${YELLOW}⊘${NC} $relative_path (no description-ja, skipping)"
-      skipped=$((skipped + 1))
-      continue
-    fi
+    if [[ "$LOCALE" == "ja" || "$LOCALE" == "zh" ]]; then
+      # Extract description-<locale> value and write it to description
+      local source_field="description-${LOCALE}"
+      local has_source
+      has_source=$(grep -c "^${source_field}:" "$skill_file" 2>/dev/null || true)
 
-    if [[ "$LOCALE" == "ja" ]]; then
-      # Extract description-ja value and write it to description
-      local ja_value
-      ja_value=$(grep "^description-ja:" "$skill_file" | sed 's/^description-ja: *//')
+      if [[ "$has_source" -eq 0 ]]; then
+        echo -e "  ${YELLOW}⊘${NC} $relative_path (no ${source_field}, skipping)"
+        skipped=$((skipped + 1))
+        continue
+      fi
 
-      if [[ -z "$ja_value" ]]; then
-        echo -e "  ${RED}✗${NC} $relative_path (empty description-ja)"
+      local source_value
+      source_value=$(grep "^${source_field}:" "$skill_file" | sed "s/^${source_field}: *//")
+
+      if [[ -z "$source_value" ]]; then
+        echo -e "  ${RED}✗${NC} $relative_path (empty ${source_field})"
         errors=$((errors + 1))
         continue
       fi
@@ -140,13 +144,12 @@ process_skill_dir() {
       if [[ "$has_en" -eq 0 ]]; then
         local en_value
         en_value="$(extract_frontmatter_value "$skill_file" "description" || true)"
-        # Insert description-en after description line
         insert_description_en "$skill_file" "$en_value"
       fi
 
-      # Replace description with Japanese value
-      replace_description "$skill_file" "$ja_value"
-      echo -e "  ${GREEN}✓${NC} $relative_path → ja"
+      # Replace description with the localized value
+      replace_description "$skill_file" "$source_value"
+      echo -e "  ${GREEN}✓${NC} $relative_path → ${LOCALE}"
       updated=$((updated + 1))
 
     elif [[ "$LOCALE" == "en" ]]; then

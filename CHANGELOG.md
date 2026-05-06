@@ -6,6 +6,12 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### Phase 62: 中国語 i18n 対応
+
+**今まで**: スキルの説明文は英語（デフォルト）と日本語（`description-ja` opt-in）の2言語のみ対応。中国語ユーザーは英語説明のまま使用していた。
+
+**今後**: 全 92 個の SKILL.md に `description-zh` フィールドを追加。`./scripts/i18n/set-locale.sh zh` で説明文を中国語に切り替え可能。`set-locale.sh en` で英語に復元でき、round-trip も保証される。`check-translations.sh` は zh 欠落を warn（fail させない）として検出する。
+
 ## [4.7.0] - 2026-05-06
 
 ### Added

@@ -3,6 +3,7 @@ name: vibecoder-guide
 description: "Explicit helper for non-technical VibeCoder coaching: what to ask next, how to describe work, and how to stay safe. Do NOT load for: direct implementation, technical review, or Cursor/PM workflow."
 description-en: "Explicit helper for non-technical VibeCoder coaching: what to ask next, how to describe work, and how to stay safe. Do NOT load for: direct implementation, technical review, or Cursor/PM workflow."
 description-ja: "非技術ユーザー向けに、次の頼み方、作業の伝え方、安全な進め方を案内する明示補助スキル。直接実装、技術レビュー、Cursor/PM ワークフローには使わない。"
+description-zh: "用自然语言开发引导 VibeCoder（非技术用户）。在用户询问下一步做什么、如何使用系统、需要帮助或卡住时使用。不用于：技术用户工作、直接实现请求或评审。"
 allowed-tools: ["Read"]
 user-invocable: false
 disable-model-invocation: true

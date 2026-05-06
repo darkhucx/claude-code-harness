@@ -65,6 +65,7 @@ echo ""
 # Check shipped skills for complete i18n metadata and English default.
 skill_missing=0
 skill_total=0
+skill_zh_warn=0  # zh is opt-in (darkhucx fork), warn but do not fail
 
 check_skill_surface() {
   local skills_dir="$1"
@@ -81,10 +82,11 @@ check_skill_surface() {
     total_count=$((total_count + 1))
     relative_path="${file#$PROJECT_ROOT/}"
 
-    local desc desc_en desc_ja ok
+    local desc desc_en desc_ja desc_zh ok
     desc="$(extract_frontmatter_value "$file" "description" || true)"
     desc_en="$(extract_frontmatter_value "$file" "description-en" || true)"
     desc_ja="$(extract_frontmatter_value "$file" "description-ja" || true)"
+    desc_zh="$(extract_frontmatter_value "$file" "description-zh" || true)"
     ok=1
 
     if [[ -z "$desc" ]]; then
@@ -104,8 +106,16 @@ check_skill_surface() {
       ok=0
     fi
 
+    # description-zh is an opt-in locale (darkhucx fork, Phase 62). Warn if missing,
+    # but do not fail — zh is not part of the upstream contract.
+    local zh_marker=""
+    if [[ -z "$desc_zh" ]]; then
+      zh_marker=" ${YELLOW}[zh: missing]${NC}"
+      skill_zh_warn=$((skill_zh_warn + 1))
+    fi
+
     if [[ "$ok" -eq 1 ]]; then
-      echo -e "  ${GREEN}✓${NC} $relative_path"
+      echo -e "  ${GREEN}✓${NC} $relative_path${zh_marker}"
     else
       skill_missing=$((skill_missing + 1))
       skill_error_count=$((skill_error_count + 1))
@@ -126,11 +136,17 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [[ $missing_count -eq 0 ]]; then
   echo -e "${GREEN}✓ All $total_count files have translations${NC}"
+  if [[ $skill_zh_warn -gt 0 ]]; then
+    echo -e "${YELLOW}  Note: $skill_zh_warn skill(s) missing description-zh (opt-in locale, not required)${NC}"
+  fi
   exit 0
 else
   echo -e "${YELLOW}⚠ $missing_count / $total_count files have i18n errors${NC}"
   if [[ $skill_missing -gt 0 ]]; then
     echo -e "${YELLOW}  Skills with i18n errors: $skill_missing / $skill_total${NC}"
+  fi
+  if [[ $skill_zh_warn -gt 0 ]]; then
+    echo -e "${YELLOW}  Note: $skill_zh_warn skill(s) missing description-zh (opt-in locale, not required)${NC}"
   fi
   exit 1
 fi

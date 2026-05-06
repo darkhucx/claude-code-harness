@@ -45,6 +45,7 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", ...]
 | `name` | Yes | Skill identifier (matches directory name) |
 | `description` | Yes | English description for auto-loading (include trigger phrases). Token-efficient. |
 | `description-ja` | Recommended | Japanese description for i18n. Use `scripts/set-locale.sh ja` to swap into `description`. |
+| `description-zh` | Recommended | Chinese description for i18n (opt-in). Use `scripts/set-locale.sh zh` to swap into `description`. |
 | `allowed-tools` | No | Tools the skill can use |
 | `argument-hint` | No | Usage hint (e.g., `"[option1|option2]"`) |
 | `disable-model-invocation` | No | Set `true` for dangerous operations |

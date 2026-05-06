@@ -3,6 +3,7 @@ name: harness-work
 description: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
 description-en: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
 description-ja: "HAR:Plans.md タスクを1件から全並列チーム実行まで担当。実装して、実行して、全部やって、breezing、チーム実行、parallel で起動。プランニング・レビュー・リリース・セットアップには使わない。"
+description-zh: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
 kind: workflow
 purpose: "Execute Plans.md tasks end to end through Codex-native tools"
 trigger: "implement, execute, do everything, breezing, team run, parallel"

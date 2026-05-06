@@ -3,6 +3,7 @@ name: cc-update-review
 description: "Quality guardrail for Claude/Codex update integration. Detects doc-only Feature Table additions and requires implementation or explicit planning. Internal use only."
 description-en: "Quality guardrail for Claude/Codex update integration. Detects doc-only Feature Table additions and requires implementation or explicit planning. Internal use only."
 description-ja: "Claude/Codex upstream update 統合の品質ガードレール。Feature Table 追加時に「書いただけ」を検出し、実装または Plans 化を強制する。内部専用。"
+description-zh: "CC 更新集成的质量护栏。检测仅文档级 Feature Table 添加，强制要求提供实现方案。仅供内部使用。评审 CC 更新集成 PR 时使用。不用于：实现工作、常规评审、初始化。"
 user-invocable: false
 disable-model-invocation: true
 allowed-tools: ["Read", "Grep", "Glob", "Bash"]

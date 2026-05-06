@@ -247,3 +247,17 @@ Purpose: AI 作業の「見せかけの成功」を、Advisor / Reviewer / Elici
 | 61.6 | harness-mem 連携を追加する | healthy 時は `elicitation-event.v1` を harness-mem に記録し、不達時は local ledger に silent fallback する | 61.3, harness-mem §107 | cc:完了 |
 | 61.7 | end-to-end proof を作る | fake harness-mem + fake reviewer + fixture task で、悪い実装が検出され、次回 advisor context に反映される | 61.4, 61.5, 61.6 | cc:完了 |
 | 61.8 | docs / README / CHANGELOG closeout | 使い方、制約、privacy、非SFT/RLであること、実行コマンドが英日同期で書かれる | 61.7 | cc:完了 |
+
+---
+
+## Phase 62: zh (Chinese) i18n integration on v4.7.0 base [P2]
+
+Purpose: v4.7.0 の i18n フレームワーク（English default + Japanese opt-in）に、第 3 の opt-in locale として Chinese (zh) を追加する。`description == description-en` の CI gate を尊重し、description-zh は additive な frontmatter として配置する。set-locale.sh / check-translations.sh を `[ja|en|zh]` に拡張し、5 個の i18n test 全部で zh 対応を検証する。darkhucx fork 専用 work（upstream には PR しない）。
+
+| Task | 内容 | DoD | Depends | Status |
+|------|------|-----|---------|--------|
+| 62.1 | 92 個 SKILL.md (`skills/`, `opencode/skills/`, `codex/.codex/skills/`) に description-zh フィールドを追加する。値は `feat/i18n-zh-support` ブランチから抽出し、description-ja の直後に挿入する。他フィールドには触らない | (a) 92 ファイル全部に description-zh が存在、(b) description == description-en（v4.7.0 の English default を維持）、(c) `./scripts/i18n/check-translations.sh` PASS | - | cc:完了 |
+| 62.2 | `scripts/i18n/set-locale.sh` を `[ja|en|zh]` に拡張する | (a) `./scripts/i18n/set-locale.sh zh` で全 SKILL.md description が zh に切替、(b) `./scripts/i18n/set-locale.sh en` で英語に復元、(c) round-trip test (zh→en→zh) PASS | 62.1 | cc:完了 |
+| 62.3 | `scripts/i18n/check-translations.sh` に zh 検証ロジックを追加する。description-zh は description-ja と同 tier の Recommended（欠落時 warn、fail させない） | (a) check-translations.sh が description-zh の有無を検出、(b) `commands/` 等の zh 未対応ファイルで fail しない、(c) PASS | 62.1 | cc:完了 |
+| 62.4 | i18n test 5 件 (`test-i18n-default-language`, `test-i18n-japanese-ux-regression`, `test-i18n-locale-resolver`, `test-i18n-locale-roundtrip`, `test-i18n-skill-frontmatter`) を全部 green にする | 5 test 全部 PASS | 62.1, 62.2, 62.3 | cc:完了 |
+| 62.5 | docs 更新: `.claude/rules/skill-editing.md` の frontmatter table に description-zh 行を追加、`CLAUDE.md` Language section に「中文用户运行指引」を 1 行追加、`CHANGELOG.md` `[Unreleased]` に Phase 62 エントリ | (a) skill-editing.md table に description-zh 行、(b) CLAUDE.md に zh opt-in 案内、(c) CHANGELOG.md `[Unreleased]` に Phase 62 追記 | 62.4 | cc:WIP |

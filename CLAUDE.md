@@ -36,6 +36,8 @@ Details: [.claude/rules/github-release.md](.claude/rules/github-release.md) (Kee
 
 All responses must be in **Japanese** (including `context: fork` skills).
 
+中文用户：运行 `./scripts/i18n/set-locale.sh zh` 可将技能描述切换为中文（opt-in）。
+
 ### Code Style
 
 - Use clear and descriptive names

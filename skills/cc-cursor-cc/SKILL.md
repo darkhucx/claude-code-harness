@@ -3,6 +3,7 @@ name: cc-cursor-cc
 description: "Validates brainstormed ideas with Cursor PM, updates Plans.md, then handoff back. Cursor ↔ Claude Code 2-Agent workflow support. Use when user mentions Cursor PM handoff, 2-agent plan validation, CC-Cursor round trip, or brainstorm review. Do NOT load for: implementation work, single-agent tasks, or direct coding."
 description-en: "Validates brainstormed ideas with Cursor PM, updates Plans.md, then handoff back. Cursor ↔ Claude Code 2-Agent workflow support. Use when user mentions Cursor PM handoff, 2-agent plan validation, CC-Cursor round trip, or brainstorm review. Do NOT load for: implementation work, single-agent tasks, or direct coding."
 description-ja: "Cursor PM でアイデアを検証し Plans.md を更新してバトンタッチ。Cursor ↔ Claude Code 2-Agent ワークフロー対応。Use when user mentions Cursor PM handoff, 2-agent plan validation, CC-Cursor round trip, or brainstorm review. Do NOT load for: implementation work, single-agent tasks, or direct coding."
+description-zh: "用 Cursor PM 验证想法、更新 Plans.md 后接力交接。Cursor ↔ Claude Code 2-Agent 工作流支持。在用户提到 Cursor PM 交接、双 Agent 计划验证、CC-Cursor 往返或头脑风暴评审时使用。不用于：实现工作、单 Agent 任务或直接编码。"
 allowed-tools: ["Read", "Write", "Edit", "Bash"]
 user-invocable: false
 disable-model-invocation: true

@@ -3,6 +3,7 @@ name: deploy
 description: "Deploy to Vercel/Netlify. One-way ticket to production arranged. Use when user mentions deployment, Vercel, Netlify, analytics, or health checks. Do NOT load for: implementation work, local development, reviews, or setup."
 description-en: "Deploy to Vercel/Netlify. One-way ticket to production arranged. Use when user mentions deployment, Vercel, Netlify, analytics, or health checks. Do NOT load for: implementation work, local development, reviews, or setup."
 description-ja: "VercelやNetlifyへいざ出陣。本番環境への片道切符を手配します。Use when user mentions deployment, Vercel, Netlify, analytics, or health checks. Do NOT load for: implementation work, local development, reviews, or setup."
+description-zh: "部署到 Vercel/Netlify。为您安排通往生产环境的单程票。在用户提到部署、Vercel、Netlify、analytics 或健康检查时使用。不用于：实现工作、本地开发、评审或初始化。"
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Monitor"]
 disable-model-invocation: true
 user-invocable: false

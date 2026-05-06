@@ -3,6 +3,7 @@ name: session-memory
 description: "Internal sub-skill for cross-session handoff, durable learning, and memory persistence. Invoked by session/memory workflows only. Do NOT load for: implementation, review, ad-hoc notes, or SSOT editing."
 description-en: "Internal sub-skill for cross-session handoff, durable learning, and memory persistence. Invoked by session/memory workflows only. Do NOT load for: implementation, review, ad-hoc notes, or SSOT editing."
 description-ja: "セッション間引き継ぎ、永続学習、memory persistence を扱う内部サブスキル。session/memory 系からのみ呼ぶ。実装、レビュー、単発メモ、SSOT編集には使わない。"
+description-zh: "管理跨会话学习与记忆持久化。在用户询问以往会话、历史或希望接续之前内容时使用。不用于：实现工作、评审或临时信息。"
 allowed-tools: ["Read", "Write", "Edit", "Bash"]
 user-invocable: false
 disable-model-invocation: true

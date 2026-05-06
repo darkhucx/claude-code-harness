@@ -149,17 +149,21 @@ That's it. Start with `/harness-plan`.
 
 ### Language
 
-Harness now ships with English as the default setup language. Japanese remains
-fully supported as an explicit opt-in:
+Harness ships with **English as the default**. Japanese and Chinese are supported as explicit opt-ins.
 
-```yaml
-i18n:
-  language: ja
+**Japanese**:
+```bash
+./scripts/i18n/set-locale.sh ja   # switch skill descriptions to Japanese
+CLAUDE_CODE_HARNESS_LANG=ja claude # temporary Japanese session
 ```
 
-You can also start a temporary Japanese setup with
-`CLAUDE_CODE_HARNESS_LANG=ja claude`. The Japanese README is
-[README_ja.md](README_ja.md).
+**Chinese** (darkhucx fork, v4.7.0+):
+```bash
+./scripts/i18n/set-locale.sh zh   # switch skill descriptions to Chinese
+./scripts/i18n/set-locale.sh en   # restore English default
+```
+
+The Japanese README is [README_ja.md](README_ja.md). For Gemini engine + zh i18n setup, see [docs/harness-gemini-setup.md](docs/harness-gemini-setup.md).
 
 ---
 

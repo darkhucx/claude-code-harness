@@ -1,6 +1,6 @@
 ---
 name: harness-work
-description: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
+description: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
 description-en: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
 description-ja: "HAR:Plans.md タスクを1件から全並列チーム実行まで担当。実装して、実行して、全部やって、breezing、チーム実行、parallel で起動。プランニング・レビュー・リリース・セットアップには使わない。"
 description-zh: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
@@ -13,7 +13,7 @@ pair: harness-review
 owner: harness-core
 since: "2026-05-05"
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task", "Monitor"]
-argument-hint: "[all] [task-number|range] [--codex] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode]"
+argument-hint: "[all] [task-number|range] [--codex] [--gemini] [--ollama] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode]"
 user-invocable: true
 effort: high
 ---
@@ -38,6 +38,8 @@ Harness の統合実行スキル。
 | `/harness-work 3` | solo | タスク3だけ即実行 |
 | `/harness-work --parallel 5` | parallel | 5ワーカーで並列実行（強制） |
 | `/harness-work --codex` | codex | Codex CLI に委託（明示時のみ） |
+| `/harness-work --gemini` | gemini | Gemini CLI に委託（明示時のみ） |
+| `/harness-work --ollama` | ollama | Ollama ローカルモデルに委託（明示時のみ） |
 | `/harness-work --breezing` | breezing | チーム実行を強制 |
 
 ## Execution Mode Auto Selection（フラグなし時の自動判定）
@@ -57,8 +59,11 @@ Harness の統合実行スキル。
    - `--parallel N` → Parallel モード（タスク数に関係なく）
    - `--breezing` → Breezing モード（タスク数に関係なく）
    - `--codex` → Codex モード（タスク数に関係なく）
+   - `--gemini` → Gemini モード（タスク数に関係なく）
+   - `--ollama` → Ollama モード（タスク数に関係なく）
 2. **`--codex` は明示時のみ発動**。Codex CLI が未インストールの環境があるため、自動選択しない
 3. `--codex` は他モードと組み合わせ可能: `--codex --breezing` → Codex + Breezing
+4. `--ollama` は他モードと組み合わせ不可。`--codex` / `--gemini` とも排他
 
 ## オプション
 
@@ -69,6 +74,8 @@ Harness の統合実行スキル。
 | `--parallel N` | 並列ワーカー数 | auto |
 | `--sequential` | 直列実行強制 | - |
 | `--codex` | Codex CLI で実装委託（明示時のみ、自動選択しない） | false |
+| `--gemini` | Gemini CLI で実装委託（明示時のみ、自動選択しない） | false |
+| `--ollama` | Ollama ローカルモデルで実装委託（明示時のみ、自動選択しない） | false |
 | `--no-commit` | 自動コミット抑制 | false |
 | `--resume <id\|latest>` | 前回セッション再開。長く空いた後は `/recap` 併用を推奨 | - |
 | `--breezing` | Lead/Worker/Reviewer のチーム実行 | false |
@@ -230,6 +237,43 @@ bash "${HARNESS_PLUGIN_ROOT}/scripts/codex-companion.sh" task --resume-last --wr
 companion は App Server Protocol 経由で Codex と通信し、
 Job 管理・thread resume・構造化出力を提供する。
 結果を検証し、品質基準を満たさない場合は自力で修正。
+
+### Gemini モード（`--gemini` 明示時のみ）
+
+Gemini CLI にタスクを委託する。`scripts/gemini-companion.sh` 経由で呼び出す。
+
+```bash
+# タスク委託
+bash "${HARNESS_PLUGIN_ROOT}/scripts/gemini-companion.sh" task --write "タスク内容"
+
+# 前回スレッドの続行
+bash "${HARNESS_PLUGIN_ROOT}/scripts/gemini-companion.sh" task --resume-last --write "続きをやって"
+```
+
+- `--codex` / `--ollama` と同時指定不可
+
+### Ollama モード（`--ollama` 明示時のみ）
+
+ローカルの Ollama インスタンス（OpenAI 互換 API）にタスクを委託する。
+`scripts/ollama-companion.sh` 経由で呼び出す。
+
+```bash
+# タスク委託
+bash scripts/ollama-companion.sh task --write "タスク内容"
+
+# モデル指定（既定: qwen2.5-coder:7b）
+bash scripts/ollama-companion.sh task --write --model llama3.1:8b "タスク内容"
+
+# 複雑度スコアで自動ルーティング判定
+bash scripts/ollama-companion.sh score-task "タスク内容"
+```
+
+**推奨ユースケース**: 小タスク（i18n フィールド追加、設定変更、コメント補完）。
+`score-task` でスコア ≤ 3 と判定されたタスクが目安。
+
+- `--codex` / `--gemini` と同時指定不可
+- `--breezing` との組み合わせは不可（ローカルモデルはバックグラウンドジョブ非対応）
+- Ollama 未起動時は即座にエラーで停止（フォールバックなし）
 
 ### Breezing モード（4 件以上で自動選択 / `--breezing` で強制）
 

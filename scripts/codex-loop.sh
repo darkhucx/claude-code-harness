@@ -45,7 +45,11 @@ RUNTIME_REVIEW_SCRIPT="${CODEX_LOOP_RUNTIME_REVIEW_SCRIPT:-${HARNESS_INSTALL_ROO
 WRITE_REVIEW_RESULT_SCRIPT="${CODEX_LOOP_WRITE_REVIEW_RESULT_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/write-review-result.sh}"
 PLATEAU_SCRIPT="${CODEX_LOOP_PLATEAU_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/detect-review-plateau.sh}"
 CHECKPOINT_SCRIPT="${CODEX_LOOP_CHECKPOINT_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/auto-checkpoint.sh}"
-MEM_CLIENT="${CODEX_LOOP_MEM_CLIENT:-${HARNESS_INSTALL_ROOT}/scripts/harness-mem-client.sh}"
+# Phase 60 (v2.20.10) 以降、scripts/harness-mem-client.sh は claude-harness
+# 配布から除外された (managed-companion 移行)。env 指定がない既定では空文字とし、
+# resume-pack 呼び出しを log 付きで skip する (line 1392-1397 の graceful path)。
+# CODEX_LOOP_MEM_CLIENT=/abs/path で test fixture 等を指定可能。
+MEM_CLIENT="${CODEX_LOOP_MEM_CLIENT:-}"
 NODE_BIN="${NODE_BIN:-node}"
 GENERATE_CONTRACT_SCRIPT="${CODEX_LOOP_GENERATE_CONTRACT_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/generate-sprint-contract.js}"
 

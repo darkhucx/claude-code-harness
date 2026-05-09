@@ -1,0 +1,16 @@
+{
+  "decisions": [
+    { "id": "D22", "title": "3層メモリアーキテクチャ", "relevance": "参考" },
+    { "id": "D37", "title": "Worker 3 層防御", "relevance": "参考" }
+  ],
+  "patterns": [
+    { "id": "P5", "title": "Hook script template", "relevance": "参考" }
+  ],
+  "plans_archive": [
+    { "phase": "Phase 41 - Issue auto-trigger", "archive_path": "archive/p41.md", "outcome": "cc:完了",   "relevance": "skill 4 段構成" },
+    { "phase": "Phase 42 - Audit log",          "archive_path": "archive/p42.md", "outcome": "cc:完了",   "relevance": "audit pattern" },
+    { "phase": "Phase 43 - Cancelled feature",  "archive_path": "archive/p43.md", "outcome": "skipped",  "relevance": "cancelled" },
+    { "phase": "Phase 44 - WIP",                "archive_path": "archive/p44.md", "outcome": "cc:WIP",   "relevance": "WIP" },
+    { "phase": "Phase 45 - Open task",          "archive_path": "archive/p45.md", "outcome": "cc:TODO",  "relevance": "TODO" }
+  ]
+}

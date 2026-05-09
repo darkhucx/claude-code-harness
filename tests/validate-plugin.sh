@@ -712,6 +712,12 @@ else
     fail_test "render-html.sh の契約テストに失敗 — 'bash tests/test-render-html.sh' で詳細確認"
 fi
 
+if bash "$PLUGIN_ROOT/tests/test-plan-brief-e2e.sh" > /dev/null 2>&1; then
+    pass_test "harness-plan-brief Phase 65.1.x の 5 ステップ e2e パイプラインが round-trip します (test-plan-brief-e2e.sh)"
+else
+    fail_test "harness-plan-brief e2e の契約テストに失敗 — 'bash tests/test-plan-brief-e2e.sh' で詳細確認"
+fi
+
 echo ""
 echo "=========================================="
 echo "テスト結果サマリー"

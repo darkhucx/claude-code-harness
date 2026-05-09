@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "source": "patterns.md",
+      "pattern_id": "P5",
+      "title": "Hook script template",
+      "summary": "shell hook の標準骨格 (set -euo pipefail + JSON 出力)",
+      "relevance_score": 0.92,
+      "verified_in_current_task": true
+    },
+    {
+      "source": "patterns.md",
+      "pattern_id": "P29",
+      "title": "dual hooks.json sync",
+      "summary": ".claude-plugin/hooks.json と hooks/hooks.json の整合 (P29 規約)",
+      "relevance_score": 0.85,
+      "verified_in_current_task": true
+    },
+    {
+      "source": "acceptance-record",
+      "pattern_id": "AR-2026-04-21",
+      "title": "Phase 41 - Issue auto-trigger pipeline post-launch issue",
+      "summary": "skill skeleton + scripts + tests + e2e の 4 段構成で issue 0 件",
+      "relevance_score": 0.78,
+      "verified_in_current_task": true
+    }
+  ]
+}

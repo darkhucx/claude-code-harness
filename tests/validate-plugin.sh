@@ -736,6 +736,12 @@ else
     fail_test "redact-by-dictionary の契約テストに失敗 — 'bash tests/test-redact-by-dictionary.sh' で詳細確認"
 fi
 
+if bash "$PLUGIN_ROOT/tests/test-redact-by-ner.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.3 Layer 2b NER (fugashi tokenizer + fail-open + sentinel guard) が動作します (test-redact-by-ner.sh)"
+else
+    fail_test "redact-by-ner の契約テストに失敗 — 'bash tests/test-redact-by-ner.sh' で詳細確認"
+fi
+
 echo ""
 echo "=========================================="
 echo "テスト結果サマリー"

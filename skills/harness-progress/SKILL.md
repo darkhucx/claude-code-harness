@@ -2,6 +2,7 @@
 name: harness-progress
 description: "Generate a Progress Tracker HTML for non-engineer vibecoders to glance at session progress (cc:WIP / cc:TODO / cc:完了 counts, percentage, elapsed/estimated minutes, cost so far/estimate, drift alerts). Uses Plans.md as source of truth, renders a single-file HTML with auto-regeneration support. Use when user asks for progress overview, session status snapshot, dashboard, or says: progress tracker, 進捗確認, 進捗ボード, dashboard. Do NOT load for: actual implementation, code review, release work."
 description-en: "Generate a Progress Tracker HTML for non-engineer vibecoders to glance at session progress (cc:WIP / cc:TODO / cc:完了 counts, percentage, elapsed/estimated minutes, cost so far/estimate, drift alerts). Uses Plans.md as source of truth, renders a single-file HTML with auto-regeneration support. Use when user asks for progress overview, session status snapshot, dashboard, or says: progress tracker, 進捗確認, 進捗ボード, dashboard. Do NOT load for: actual implementation, code review, release work."
+description-ja: "進捗 Tracker HTML を生成する。Plans.md を SoT として cc:WIP / cc:TODO / cc:完了 件数・%、経過分数・コスト・drift alert を 1 枚 HTML で表示。PostToolUse hook で 60 秒に 1 回自動再生成。Use when: 進捗確認, 進捗ボード, dashboard。Do NOT load for: 実装作業, code review, release。"
 allowed-tools: ["Read", "Write", "Bash"]
 argument-hint: "[--out <path>] [--no-open]"
 ---

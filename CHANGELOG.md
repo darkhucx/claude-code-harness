@@ -8,6 +8,7 @@ Change history for claude-code-harness.
 
 - (local trial) Phase 68: TDD enforcement L1+L2+L3+L4 introduced (not released).
 - Added the project spec SSOT workflow to `harness-plan`, `harness-work`, Worker, Scaffolder, and Reviewer so Plans.md stays the task ledger while product-level behavior is fixed in a stable spec when needed.
+- Fixed `codex-loop` orphan-job handling (#131): runner loss with an active job now reports `runner_lost_job_running`, `stop` cancels the recorded job, and unexpected runner exits cancel active companion/local jobs before leaving terminal state.
 
 ### Phase 67: Codex 0.130.0 stable upstream snapshot
 

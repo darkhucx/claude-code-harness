@@ -303,6 +303,9 @@ case "\${cmd}" in
           ;;
       esac
     done
+    if [ -n "\${FAKE_COMPANION_TASK_STDERR:-}" ]; then
+      echo "fake guard message on stderr" >&2
+    fi
     printf '%s\n' "\${prompt_file}" > "\${PROMPT_FILE_STATE}"
     write_job "queued"
     printf '0' > "\${COUNTER_FILE}"
@@ -768,7 +771,7 @@ run_startup_failure_case() {
     CODEX_LOOP_CHECKPOINT_SCRIPT="${tmp}/bin/fake-checkpoint.sh" \
     CODEX_LOOP_MEM_CLIENT="${tmp}/bin/fake-mem.sh" \
     CODEX_LOOP_GENERATE_CONTRACT_SCRIPT="/bin/false" \
-    CODEX_LOOP_STARTUP_CHECKS=20 \
+    CODEX_LOOP_STARTUP_CHECKS=120 \
     CODEX_LOOP_STARTUP_INTERVAL_SEC=0.05 \
     bash "${LOOP_SCRIPT}" start all --max-cycles 1 --pacing worker --executor task 2>&1
   )"
@@ -828,6 +831,203 @@ EOF
   else
     fail "state stale case: status did not include runner log tail"
   fi
+
+  cleanup_tmp "${tmp}"
+}
+
+run_runner_lost_active_job_status_and_stop_case() {
+  local tmp
+  tmp="$(mktemp -d)"
+  local repo="${tmp}/repo"
+  mkdir -p "${repo}/.claude/state/codex-loop"
+  setup_fake_tools "${tmp}" "stall"
+  cat > "${repo}/.claude/state/codex-loop/run.json" <<EOF
+{
+  "schema_version": "codex-loop-run.v1",
+  "run_id": "codex-loop-lost-job-fixture",
+  "selection": "all",
+  "max_cycles": 1,
+  "task_driver": "companion",
+  "companion_path": "${tmp}/bin/fake-companion.sh",
+  "status": "running",
+  "pid": 99999999,
+  "current_task_id": "1",
+  "current_cycle": 1,
+  "current_job_id": "fake-job-1",
+  "current_job_status": "running",
+  "current_job_phase": "running"
+}
+EOF
+  cat > "${repo}/.claude/state/codex-loop/current-job.json" <<'EOF'
+{
+  "run_id": "codex-loop-lost-job-fixture",
+  "cycle": 1,
+  "task_id": "1",
+  "job_id": "fake-job-1"
+}
+EOF
+  cat > "${repo}/.claude/state/codex-loop/runner.log" <<'EOF'
+[fixture] launched fake-job-1
+[fixture] runner disappeared before polling finished
+EOF
+
+  local output
+  output="$(
+    PROJECT_ROOT="${repo}" \
+    CODEX_LOOP_TASK_DRIVER=companion \
+    CODEX_LOOP_COMPANION="${tmp}/bin/fake-companion.sh" \
+    bash "${LOOP_SCRIPT}" status --json
+  )"
+
+  if printf '%s' "${output}" | jq -e '.run.status == "runner_lost_job_running" and .run.current_job_id == "fake-job-1" and (.run.error_message | contains("active job fake-job-1"))' >/dev/null; then
+    pass "runner lost active job: status reports dedicated state"
+  else
+    fail "runner lost active job: status did not report dedicated state"
+  fi
+
+  PROJECT_ROOT="${repo}" bash "${LOOP_SCRIPT}" stop >/dev/null
+
+  if [ -f "${tmp}/companion-state/cancelled" ]; then
+    pass "runner lost active job: stop cancels active companion job"
+  else
+    fail "runner lost active job: stop did not cancel active companion job"
+  fi
+
+  if jq -e '.status == "stopped" and .exit_reason == "user_stop" and .last_cancelled_job_id == "fake-job-1"' \
+    "${repo}/.claude/state/codex-loop/run.json" >/dev/null; then
+    pass "runner lost active job: stop reconciles stale run state"
+  else
+    fail "runner lost active job: stop did not reconcile stale run state"
+  fi
+
+  cleanup_tmp "${tmp}"
+}
+
+run_runner_lost_cancel_failure_case() {
+  local tmp
+  tmp="$(mktemp -d)"
+  local repo="${tmp}/repo"
+  mkdir -p "${repo}/.claude/state/codex-loop"
+  cat > "${repo}/.claude/state/codex-loop/run.json" <<EOF
+{
+  "schema_version": "codex-loop-run.v1",
+  "run_id": "codex-loop-cancel-fail-fixture",
+  "selection": "all",
+  "max_cycles": 1,
+  "task_driver": "companion",
+  "companion_path": "/bin/false",
+  "status": "running",
+  "pid": 99999999,
+  "current_task_id": "1",
+  "current_cycle": 1,
+  "current_job_id": "fake-job-1",
+  "current_job_status": "running",
+  "current_job_phase": "running"
+}
+EOF
+  cat > "${repo}/.claude/state/codex-loop/current-job.json" <<'EOF'
+{
+  "run_id": "codex-loop-cancel-fail-fixture",
+  "cycle": 1,
+  "task_id": "1",
+  "job_id": "fake-job-1",
+  "task_driver": "companion",
+  "companion_path": "/bin/false"
+}
+EOF
+
+  local status=0
+  set +e
+  PROJECT_ROOT="${repo}" bash "${LOOP_SCRIPT}" stop >/dev/null 2>&1
+  status=$?
+  set -e
+
+  if [ "${status}" -ne 0 ]; then
+    pass "runner lost cancel failure: stop returns failure when cancel fails"
+  else
+    fail "runner lost cancel failure: stop falsely succeeded"
+  fi
+
+  if jq -e '.status == "runner_lost_job_running" and .exit_reason == "stop_cancel_failed" and .current_job_status == "cancel_failed" and .last_cancel_exit_status != 0 and .current_job_id == "fake-job-1"' \
+    "${repo}/.claude/state/codex-loop/run.json" >/dev/null; then
+    pass "runner lost cancel failure: active job remains unreconciled"
+  else
+    fail "runner lost cancel failure: state falsely reconciled failed cancellation"
+  fi
+
+  cleanup_tmp "${tmp}"
+}
+
+run_runner_failure_cancels_active_job_case() {
+  local tmp
+  tmp="$(mktemp -d)"
+  local repo="${tmp}/repo"
+  mkdir -p "${repo}"
+  setup_repo "${repo}"
+  setup_fake_tools "${tmp}" "stall"
+
+  set +e
+  PROJECT_ROOT="${repo}" \
+  CODEX_LOOP_TASK_DRIVER=companion \
+  CODEX_LOOP_COMPANION="${tmp}/bin/fake-companion.sh" \
+  CODEX_LOOP_VALIDATE_SCRIPT="${tmp}/bin/fake-validate.sh" \
+  CODEX_LOOP_ENRICH_CONTRACT_SCRIPT="${tmp}/bin/fake-enrich-contract.sh" \
+  CODEX_LOOP_ENSURE_CONTRACT_SCRIPT="${tmp}/bin/fake-ensure-contract.sh" \
+  CODEX_LOOP_RUNTIME_REVIEW_SCRIPT="${tmp}/bin/fake-runtime-review.sh" \
+  CODEX_LOOP_WRITE_REVIEW_RESULT_SCRIPT="${tmp}/bin/fake-write-review-result.sh" \
+  CODEX_LOOP_PLATEAU_SCRIPT="${tmp}/bin/fake-plateau.sh" \
+  CODEX_LOOP_CHECKPOINT_SCRIPT="${tmp}/bin/fake-checkpoint.sh" \
+  CODEX_LOOP_MEM_CLIENT="${tmp}/bin/fake-mem.sh" \
+  CODEX_LOOP_GENERATE_CONTRACT_SCRIPT="${tmp}/bin/fake-generate-contract.sh" \
+  CODEX_LOOP_POLL_INTERVAL_SEC=not-a-number \
+  CODEX_LOOP_STARTUP_CHECKS=40 \
+  CODEX_LOOP_STARTUP_INTERVAL_SEC=0.05 \
+  bash "${LOOP_SCRIPT}" start all --max-cycles 1 --pacing worker --executor task >/dev/null 2>&1
+  set -e
+
+  poll_for_status "${repo}/.claude/state/codex-loop/run.json" "failed" || fail "runner failure cancel: run should fail"
+
+  if [ -f "${tmp}/companion-state/cancelled" ]; then
+    pass "runner failure cancel: active companion job was cancelled"
+  else
+    fail "runner failure cancel: active companion job was orphaned"
+  fi
+
+  jq -e '.status == "failed" and .exit_reason == "runner_exit" and (.error_message | contains("exit=1")) and .last_cancelled_job_id == "fake-job-1"' \
+    "${repo}/.claude/state/codex-loop/run.json" >/dev/null \
+    && pass "runner failure cancel: run records explicit failure" \
+    || fail "runner failure cancel: run did not record explicit failure"
+
+  cleanup_tmp "${tmp}"
+}
+
+run_companion_stderr_json_case() {
+  local tmp
+  tmp="$(mktemp -d)"
+  local repo="${tmp}/repo"
+  mkdir -p "${repo}"
+  setup_repo "${repo}"
+  setup_fake_tools "${tmp}" "complete"
+
+  PROJECT_ROOT="${repo}" \
+  CODEX_LOOP_TASK_DRIVER=companion \
+  CODEX_LOOP_COMPANION="${tmp}/bin/fake-companion.sh" \
+  CODEX_LOOP_VALIDATE_SCRIPT="${tmp}/bin/fake-validate.sh" \
+  CODEX_LOOP_ENRICH_CONTRACT_SCRIPT="${tmp}/bin/fake-enrich-contract.sh" \
+  CODEX_LOOP_ENSURE_CONTRACT_SCRIPT="${tmp}/bin/fake-ensure-contract.sh" \
+  CODEX_LOOP_RUNTIME_REVIEW_SCRIPT="${tmp}/bin/fake-runtime-review.sh" \
+  CODEX_LOOP_WRITE_REVIEW_RESULT_SCRIPT="${tmp}/bin/fake-write-review-result.sh" \
+  CODEX_LOOP_PLATEAU_SCRIPT="${tmp}/bin/fake-plateau.sh" \
+  CODEX_LOOP_CHECKPOINT_SCRIPT="${tmp}/bin/fake-checkpoint.sh" \
+  CODEX_LOOP_MEM_CLIENT="${tmp}/bin/fake-mem.sh" \
+  CODEX_LOOP_GENERATE_CONTRACT_SCRIPT="${tmp}/bin/fake-generate-contract.sh" \
+  CODEX_LOOP_POLL_INTERVAL_SEC=1 \
+  FAKE_COMPANION_TASK_STDERR=1 \
+  bash "${LOOP_SCRIPT}" start all --max-cycles 1 --pacing worker --executor task >/dev/null
+
+  poll_for_status "${repo}/.claude/state/codex-loop/run.json" "completed" \
+    && pass "companion stderr case: launch JSON parsed from stdout only" \
+    || fail "companion stderr case: stderr guard output broke launch JSON parsing"
 
   cleanup_tmp "${tmp}"
 }
@@ -1408,6 +1608,10 @@ run_cross_repo_case
 run_state_corrupt_case
 run_startup_failure_case
 run_state_stale_log_tail_case
+run_runner_lost_active_job_status_and_stop_case
+run_runner_lost_cancel_failure_case
+run_runner_failure_cancels_active_job_case
+run_companion_stderr_json_case
 run_plain_status_case
 run_named_selection_case
 run_heading_selection_case

@@ -53,11 +53,10 @@ else
   fail "templates/html/test-fixture.html.template が存在しない"
 fi
 
-# テンプレート自身が CAN AI palette を含むこと (DoD (e))
+# テンプレート自身が Claude Harness palette を含むこと (DoD (e))
 if [ -f "$TEMPLATE_DIR/test-fixture.html.template" ]; then
-  template_body="$(cat "$TEMPLATE_DIR/test-fixture.html.template")"
   for hex in "#FAFAFA" "#0F0F0F" "#F58A4A"; do
-    if echo "$template_body" | grep -qi "$hex"; then
+    if grep -qi "$hex" "$TEMPLATE_DIR/test-fixture.html.template"; then
       pass "テンプレートに Claude Harness palette カラー $hex が含まれる"
     else
       fail "テンプレートに Claude Harness palette カラー $hex が含まれない"

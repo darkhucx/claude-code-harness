@@ -6,6 +6,21 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### Before / After
+
+| 観点 | Before | After |
+|------|--------|-------|
+| 配信先 OS 検証 | Linux 単一系のみ | Linux / macOS / Windows の 3 OS マトリクスで毎 PR スモーク（build → version → validate → doctor → manifest 整合性） |
+| アクション参照 | `@v6` 等のミュータブルなタグ（書き換え可能） | 全アクションを 40 桁 commit SHA に固定（2026 年 Trivy-action 攻撃パターンを無効化） |
+| 依存性自動更新 | 手動で漏れがち | Dependabot 週次 PR（github-actions / gomod / composite action）+ 7 日 cooldown |
+| ワークフロー権限 | `opencode-compat` は無宣言（過剰） | 全ワークフロー workflow-level `permissions: contents: read`、release のみ job-level `contents: write` に escalate |
+| トークン保持 | デフォルトで checkout token 残留 | 全 checkout に `persist-credentials: false` を追加 |
+| 連続 push 時 CI | 古い実行が走り続けて Actions 利用時間を浪費 | `concurrency` で PR 起源の古い run を自動キャンセル（release / benchmark は完走保護） |
+| 配信元の整合性 | Go セットアップが 3 箇所重複 | `.github/actions/setup-go-harness` composite に集約 |
+| ワークフロー YAML 検証 | 実行時まで発覚せず | `actionlint` ジョブが PR ごとにシェル文 + 構文を検査（shellcheck 統合） |
+| コード脆弱性スキャン | なし | CodeQL（Go）を push / PR / 週次で Security タブにレポート |
+| サプライチェーンスコア | なし | OSSF Scorecard を週次で公開（ブランチ保護・署名済みリリース等を継続的に評価） |
+
 ### Added
 
 - **GitHub Actions サプライチェーン強化**: 全ワークフローのアクションを SHA ピン化し、Dependabot による週次自動更新（7日 cooldown 付き）を追加。2026年3月の Trivy-action タグ書き換え攻撃のような事例から保護されます。

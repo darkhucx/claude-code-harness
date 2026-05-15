@@ -168,21 +168,27 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Benchmark Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+          # Pick the latest scorecard.md by mtime without parsing `ls` output.
+          SCORECARD_MD=""
+          while IFS= read -r -d '' candidate; do
+            if [ -z "$SCORECARD_MD" ] || [ "$candidate" -nt "$SCORECARD_MD" ]; then
+              SCORECARD_MD="$candidate"
+            fi
+          done < <(find benchmarks/results -maxdepth 1 -name 'scorecard-*.md' -print0 2>/dev/null)
 
-          # 最新の scorecard.md を表示
-          SCORECARD_MD=$(ls -t benchmarks/results/scorecard-*.md 2>/dev/null | head -1)
-          if [ -n "$SCORECARD_MD" ] && [ -f "$SCORECARD_MD" ]; then
-            cat "$SCORECARD_MD" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Scorecard が生成されませんでした。" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "---" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Artifacts" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- benchmark-results-${{ github.run_id }}: 全結果（JSON, trace, output）" >> "$GITHUB_STEP_SUMMARY"
-          echo "- scorecard-${{ github.run_id }}: Scorecard（JSON, Markdown）" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Benchmark Results"
+            echo ""
+            if [ -n "$SCORECARD_MD" ] && [ -f "$SCORECARD_MD" ]; then
+              cat "$SCORECARD_MD"
+            else
+              echo "Scorecard が生成されませんでした。"
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "### Artifacts"
+            echo ""
+            echo "- benchmark-results-${{ github.run_id }}: 全結果（JSON, trace, output）"
+            echo "- scorecard-${{ github.run_id }}: Scorecard（JSON, Markdown）"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -67,9 +67,14 @@ Lead は次の 2 条件のいずれかを満たしたら、同じ task を **最
 |------|-------------|
 | `review-result.v1.verdict == APPROVE` | cherry-pick して main に commit |
 | `review-result.v1.verdict == REQUEST_CHANGES` | 同じ Worker に修正依頼を返す |
+| 修正に仕様・Plans・API・権限・課金・移行の意思決定が必要 | AskUserQuestion で user decision を取る。推測で修正しない |
 
 修正ループは最大 3 回。
 4 回目には入らず、Lead が task をエスカレーションする。
+
+`harness-review` は必要時に TeamAgent Debate を使う。
+これは Reviewer の判定権限を増やすものではなく、Spec Agent / Plans Agent / Regression Agent / Skeptic Agent の read-only 視点を衝突させるための材料集めである。
+最終 verdict は引き続き Reviewer が `review-result.v1` と明確な合格ラインに基づいて出す。
 
 ## SendMessage の固定パターン
 

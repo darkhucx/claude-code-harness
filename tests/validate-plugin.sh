@@ -960,6 +960,22 @@ else
 fi
 
 echo ""
+echo "14. Harness review governance check"
+echo "----------------------------------------"
+
+if bash "$PLUGIN_ROOT/tests/test-harness-review-governance.sh" > /dev/null 2>&1; then
+    pass_test "harness-review は TeamAgent Debate / 合格ライン / spec+Plans+デグレ gate / AskUserQuestion / mirror sync を満たします"
+else
+    fail_test "harness-review governance contract failed — 'bash tests/test-harness-review-governance.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-harness-release-governance.sh" > /dev/null 2>&1; then
+    pass_test "harness-release は bare invocation / 未レビュー AskUserQuestion / review→commit→release gate / mirror sync を満たします"
+else
+    fail_test "harness-release governance contract failed — 'bash tests/test-harness-release-governance.sh' で詳細確認"
+fi
+
+echo ""
 echo "=========================================="
 echo "テスト結果サマリー"
 echo "=========================================="

@@ -1,16 +1,6 @@
 name: 'Setup Go (harness)'
 description: 'Install Go using go/go.mod and enable module + build cache via setup-go.'
 
-inputs:
-  build:
-    description: 'If "true", also build cmd/harness binaries to bin/. Default: "false".'
-    required: false
-    default: 'false'
-  output-dir:
-    description: 'Output directory for built binaries (relative to repo root). Default: bin'
-    required: false
-    default: 'bin'
-
 runs:
   using: 'composite'
   steps:
@@ -19,13 +9,3 @@ runs:
       with:
         go-version-file: go/go.mod
         cache-dependency-path: go/go.sum
-
-    - name: Build harness binary
-      if: inputs.build == 'true'
-      shell: bash
-      working-directory: go
-      env:
-        OUTPUT_DIR: ${{ inputs.output-dir }}
-      run: |
-        mkdir -p "../${OUTPUT_DIR}"
-        go build -o "../${OUTPUT_DIR}/harness-linux-amd64" ./cmd/harness/

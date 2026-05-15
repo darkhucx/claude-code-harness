@@ -38,7 +38,6 @@ cp scripts/i18n/set-locale.sh "$tmpdir/repo/scripts/i18n/set-locale.sh"
 copy_dir skills
 copy_dir skills-codex
 copy_dir codex/.codex/skills
-copy_dir opencode/skills
 copy_dir .agents/skills
 
 locale_log="$tmpdir/i18n-japanese-ux-locale.log"
@@ -80,9 +79,6 @@ key_skills = [
     ("codex/.codex/skills/harness-work/SKILL.md", "実装して"),
     ("codex/.codex/skills/harness-review/SKILL.md", "レビューして"),
     ("codex/.codex/skills/harness-plan/SKILL.md", "計画作って"),
-    ("opencode/skills/harness-work/SKILL.md", "実装して"),
-    ("opencode/skills/harness-review/SKILL.md", "レビューして"),
-    ("opencode/skills/harness-plan/SKILL.md", "計画作って"),
     (".agents/skills/harness-work/SKILL.md", "実装して"),
     (".agents/skills/harness-review/SKILL.md", "レビューして"),
     (".agents/skills/harness-plan/SKILL.md", "計画作って"),

@@ -155,8 +155,10 @@ opencode
 - OpenCode does not use the Claude Code plugin system under `.claude-plugin/`.
 - Memory hooks live in `opencode/plugins/harness-memory/index.ts`
   (`chat.message`, `session.idle`, `session.compacted`).
-- Skill frontmatter keeps both `description-en` and `description-ja` so OpenCode
-  follows the same language contract as Claude Code and Codex.
+- Skill frontmatter is generated for OpenCode's native skill contract:
+  `name` and `description` are required, while bilingual
+  `description-en` / `description-ja` metadata stays in the Claude Code and
+  Codex source surfaces.
 
 ## Links
 

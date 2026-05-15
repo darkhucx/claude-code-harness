@@ -9,13 +9,41 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+is_git_ignored() {
+  local relative_path="$1"
+
+  if ! command -v git >/dev/null 2>&1; then
+    return 1
+  fi
+
+  git check-ignore -q -- "$relative_path"
+}
+
+list_skill_files() {
+  find skills skills-codex codex/.codex/skills -mindepth 2 -maxdepth 2 -type f -name "SKILL.md" \
+    | sort \
+    | while IFS= read -r file; do
+        if is_git_ignored "$file"; then
+          continue
+        fi
+        printf '%s\n' "$file"
+      done
+}
+
 snapshot_file() {
   local output="$1"
-  find skills skills-codex codex/.codex/skills opencode/skills -mindepth 2 -maxdepth 2 -type f -name "SKILL.md" \
-    | sort \
+  list_skill_files \
     | while IFS= read -r file; do
         cksum "$file"
       done > "$output"
+}
+
+copy_repo_file() {
+  local source_path="$1"
+  local target_path="$tmpdir/repo/$source_path"
+
+  mkdir -p "$(dirname "$target_path")"
+  cp "$source_path" "$target_path"
 }
 
 verify_locale_copy() {
@@ -33,7 +61,6 @@ surfaces = [
     root / "skills",
     root / "skills-codex",
     root / "codex/.codex/skills",
-    root / "opencode/skills",
 ]
 
 
@@ -75,14 +102,10 @@ trap 'rm -rf "$tmpdir" "$before" "$after"' EXIT
 
 snapshot_file "$before"
 
-mkdir -p "$tmpdir/repo/scripts/i18n" "$tmpdir/repo/codex/.codex"
-cp scripts/i18n/set-locale.sh "$tmpdir/repo/scripts/i18n/set-locale.sh"
-cp -R skills "$tmpdir/repo/skills"
-cp -R skills-codex "$tmpdir/repo/skills-codex"
-cp -R codex/.codex/skills "$tmpdir/repo/codex/.codex/skills"
-mkdir -p "$tmpdir/repo/opencode"
-cp -R opencode/skills "$tmpdir/repo/opencode/skills"
-
+copy_repo_file scripts/i18n/set-locale.sh
+while IFS= read -r file; do
+  copy_repo_file "$file"
+done < <(list_skill_files)
 (
   cd "$tmpdir/repo"
   bash scripts/i18n/set-locale.sh ja >/tmp/i18n-roundtrip-ja.$$ 2>&1

@@ -753,7 +753,14 @@ if [ -d "opencode/skills" ] && [ -d "codex/.codex/skills" ]; then
         test-*|x-*|breezing|cc-update-review|claude-codex-upstream-update|harness-release-internal|maintenance|zz-review-empty|zz-review-escape|_archived|harness-ui) continue ;;
       esac
       if [ -f "$d/SKILL.md" ]; then
-        sed -n 's/^name:[[:space:]]*//p' "$d/SKILL.md" | head -n 1 | tr -d '\"'
+        local skill_name
+        skill_name="$(sed -n 's/^name:[[:space:]]*//p' "$d/SKILL.md" | head -n 1 | tr -d '\"')"
+        # OpenCode skill names must be lowercase kebab-case. Normalize known
+        # cross-client casing differences before comparing mirror coverage.
+        if [ "$skill_name" = "notebookLM" ]; then
+          skill_name="notebooklm"
+        fi
+        printf '%s\n' "$skill_name"
       fi
     done | sort
   }

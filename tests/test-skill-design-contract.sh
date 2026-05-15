@@ -34,6 +34,7 @@ const errors = [];
 
 for (const skill of manifest.skills) {
   if (!coreSkills.has(skill.name)) continue;
+  if (skill.surface === 'opencode/skills') continue;
 
   for (const field of requiredFields) {
     if (skill[field] === null || skill[field] === '') {

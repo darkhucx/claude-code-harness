@@ -5,7 +5,7 @@
  * opencode 用に変換されたファイルが正しい形式かを検証
  *
  * 検証内容:
- * - frontmatter に opencode 非対応フィールドがないか
+ * - command / skill frontmatter が opencode 仕様に合っているか
  * - 必須ファイルが存在するか
  * - JSON ファイルが有効か
  *
@@ -23,8 +23,9 @@ const path = require('path');
 const ROOT_DIR = path.join(__dirname, '..');
 const OPENCODE_DIR = path.join(ROOT_DIR, 'opencode');
 
-// opencode で無効な frontmatter フィールド
-const INVALID_FIELDS = ['description-en', 'name'];
+const COMMAND_INVALID_FIELDS = ['description-en', 'name'];
+const SKILL_ALLOWED_FIELDS = new Set(['name', 'description', 'license', 'compatibility', 'metadata']);
+const SKILL_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 // 必須ファイル（v2.17.0+: commands は Skills に移行済み、skills が必須）
 const REQUIRED_FILES = [
@@ -77,7 +78,7 @@ function validateCommandFile(filePath) {
   }
 
   // 無効なフィールドをチェック
-  for (const field of INVALID_FIELDS) {
+  for (const field of COMMAND_INVALID_FIELDS) {
     if (frontmatter[field]) {
       errors.push(`${relativePath}: Invalid field '${field}' found in frontmatter`);
     }
@@ -86,6 +87,48 @@ function validateCommandFile(filePath) {
   // description がない場合は警告
   if (!frontmatter.description) {
     warnings.push(`${relativePath}: Missing 'description' field`);
+  }
+}
+
+function validateSkillFile(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const frontmatter = parseFrontmatter(content);
+  const relativePath = path.relative(ROOT_DIR, filePath);
+  const skillDirName = path.basename(path.dirname(filePath));
+
+  if (!frontmatter) {
+    errors.push(`${relativePath}: Missing required YAML frontmatter`);
+    return;
+  }
+
+  for (const field of Object.keys(frontmatter)) {
+    if (!SKILL_ALLOWED_FIELDS.has(field)) {
+      errors.push(`${relativePath}: Unsupported OpenCode skill field '${field}' found in frontmatter`);
+    }
+  }
+
+  if (!frontmatter.name) {
+    errors.push(`${relativePath}: Missing required 'name' field`);
+  } else {
+    const skillName = frontmatter.name.replace(/^["']|["']$/g, '');
+    if (skillName.length < 1 || skillName.length > 64) {
+      errors.push(`${relativePath}: Invalid skill name length '${skillName}' (expected 1-64 characters)`);
+    }
+    if (!SKILL_NAME_PATTERN.test(skillName)) {
+      errors.push(`${relativePath}: Invalid skill name '${skillName}' (expected lowercase kebab-case)`);
+    }
+    if (skillName !== skillDirName) {
+      errors.push(`${relativePath}: Skill name '${skillName}' must match directory '${skillDirName}'`);
+    }
+  }
+
+  if (!frontmatter.description) {
+    errors.push(`${relativePath}: Missing required 'description' field`);
+  } else {
+    const description = frontmatter.description.replace(/^["']|["']$/g, '');
+    if (description.length < 1 || description.length > 1024) {
+      errors.push(`${relativePath}: Invalid description length (expected 1-1024 characters)`);
+    }
   }
 }
 
@@ -108,6 +151,28 @@ function validateDirectory(dir) {
     } else if (entry.name.endsWith('.md')) {
       validateCommandFile(fullPath);
     }
+  }
+}
+
+function validateSkillsDirectory(dir) {
+  if (!fs.existsSync(dir)) {
+    errors.push(`Directory not found: ${path.relative(ROOT_DIR, dir)}`);
+    return;
+  }
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const skillFile = path.join(dir, entry.name, 'SKILL.md');
+    if (!fs.existsSync(skillFile)) {
+      errors.push(`${path.relative(ROOT_DIR, path.join(dir, entry.name))}: Missing SKILL.md`);
+      continue;
+    }
+
+    validateSkillFile(skillFile);
   }
 }
 
@@ -189,6 +254,10 @@ function main() {
   if (fs.existsSync(commandsDir)) {
     validateDirectory(commandsDir);
   }
+
+  // スキルファイルの検証
+  console.log('🧩 Validating skill files...');
+  validateSkillsDirectory(path.join(OPENCODE_DIR, 'skills'));
 
   // JSON ファイルの検証
   console.log('📋 Validating JSON files...');

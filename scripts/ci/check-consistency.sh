@@ -428,10 +428,9 @@ for skill in $HARNESS_SKILLS; do
     continue
   fi
 
-  for mirror_name in codex opencode; do
+  for mirror_name in codex; do
     case "$mirror_name" in
       codex) mirror_root="$CODEX_MIRROR" ;;
-      opencode) mirror_root="$OPENCODE_MIRROR" ;;
     esac
 
     if [ ! -d "$mirror_root" ]; then
@@ -466,6 +465,15 @@ for skill in $HARNESS_SKILLS; do
     fi
   done
 done
+
+if [ -d "$OPENCODE_MIRROR" ]; then
+  if node "$PLUGIN_ROOT/scripts/validate-opencode.js" >/dev/null 2>&1; then
+    echo "  ✅ opencode: generated skill mirror is valid"
+  else
+    echo "  ❌ opencode: generated skill mirror validation failed"
+    MIRROR_ISSUES=$((MIRROR_ISSUES + 1))
+  fi
+fi
 
 if [ $MIRROR_ISSUES -gt 0 ]; then
   ERRORS=$((ERRORS + MIRROR_ISSUES))

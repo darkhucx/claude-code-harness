@@ -1,11 +1,6 @@
 ---
 name: principles
 description: "Explicit helper for development principles, safety guidelines, and diff-aware editing rules. Do NOT load for: implementation, review, workflow coaching, or VibeCoder onboarding."
-description-en: "Explicit helper for development principles, safety guidelines, and diff-aware editing rules. Do NOT load for: implementation, review, workflow coaching, or VibeCoder onboarding."
-description-ja: "開発原則、安全ガイドライン、差分尊重の編集ルールを確認する明示補助スキル。実装、レビュー、進め方相談、VibeCoder案内には使わない。"
-allowed-tools: ["Read"]
-user-invocable: false
-disable-model-invocation: true
 ---
 
 # Principles Skills

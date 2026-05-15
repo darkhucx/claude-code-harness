@@ -1,20 +1,6 @@
 ---
 name: breezing
 description: "Team execution mode — backward-compatible alias for harness-work with team orchestration."
-description-ja: "チーム実行モード — harness-work のチーム協調エイリアス。breezing, チーム実行, 全部やって でトリガー。"
-description-en: "Team execution mode — backward-compatible alias for harness-work with team orchestration."
-kind: workflow
-purpose: "Wrap harness-work with team execution orchestration"
-trigger: "breezing, team execution, do everything"
-shape: wrap
-role: orchestrator
-base: harness-work
-pair: harness-review
-owner: harness-core
-since: "2026-05-05"
-allowed-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Task", "WebSearch", "Monitor"]
-argument-hint: "[all|N-M|--codex|--parallel N|--no-commit|--no-discuss|--auto-mode]"
-user-invocable: true
 ---
 
 # Breezing — Team Execution Mode

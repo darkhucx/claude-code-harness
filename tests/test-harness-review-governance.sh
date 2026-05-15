@@ -74,9 +74,11 @@ for file in "${skill_files[@]}"; do
     check_file_contains "$file" "$term"
   done
 
-  if ! grep -Eq '^allowed-tools: .*AskUserQuestion' "$file"; then
-    echo "AskUserQuestion is not exposed in allowed-tools: ${file#$ROOT_DIR/}" >&2
-    failures=$((failures + 1))
+  if [[ "$file" != */opencode/skills/* ]]; then
+    if ! grep -Eq '^allowed-tools: .*AskUserQuestion' "$file"; then
+      echo "AskUserQuestion is not exposed in allowed-tools: ${file#$ROOT_DIR/}" >&2
+      failures=$((failures + 1))
+    fi
   fi
 done
 
@@ -97,8 +99,13 @@ if ! diff -qr --exclude='.DS_Store' "$ROOT_DIR/skills/harness-review" "$ROOT_DIR
   failures=$((failures + 1))
 fi
 
-if ! diff -qr --exclude='.DS_Store' "$ROOT_DIR/skills/harness-review" "$ROOT_DIR/opencode/skills/harness-review" >/dev/null; then
-  echo "opencode harness-review mirror drifted from skills/ SSOT" >&2
+if ! diff -qr --exclude='.DS_Store' "$ROOT_DIR/skills/harness-review/references" "$ROOT_DIR/opencode/skills/harness-review/references" >/dev/null; then
+  echo "opencode harness-review references drifted from skills/ SSOT" >&2
+  failures=$((failures + 1))
+fi
+
+if ! node "$ROOT_DIR/scripts/validate-opencode.js" >/dev/null; then
+  echo "opencode skill frontmatter failed native validation" >&2
   failures=$((failures + 1))
 fi
 

@@ -45,14 +45,16 @@ for file in "${skill_files[@]}"; do
     fi
   done
 
-  if ! grep -Eq '^allowed-tools: .*AskUserQuestion' "$file"; then
-    echo "AskUserQuestion is not exposed in allowed-tools: ${file#$ROOT_DIR/}" >&2
-    failures=$((failures + 1))
-  fi
+  if [[ "$file" != */opencode/skills/* ]]; then
+    if ! grep -Eq '^allowed-tools: .*AskUserQuestion' "$file"; then
+      echo "AskUserQuestion is not exposed in allowed-tools: ${file#$ROOT_DIR/}" >&2
+      failures=$((failures + 1))
+    fi
 
-  if ! grep -Eq '^allowed-tools: .*Skill' "$file"; then
-    echo "Skill tool is not exposed for harness-review handoff: ${file#$ROOT_DIR/}" >&2
-    failures=$((failures + 1))
+    if ! grep -Eq '^allowed-tools: .*Skill' "$file"; then
+      echo "Skill tool is not exposed for harness-review handoff: ${file#$ROOT_DIR/}" >&2
+      failures=$((failures + 1))
+    fi
   fi
 done
 
@@ -61,8 +63,8 @@ if ! diff -qr --exclude='.DS_Store' "$ROOT_DIR/skills/harness-release" "$ROOT_DI
   failures=$((failures + 1))
 fi
 
-if ! diff -qr --exclude='.DS_Store' "$ROOT_DIR/skills/harness-release" "$ROOT_DIR/opencode/skills/harness-release" >/dev/null; then
-  echo "opencode harness-release mirror drifted from skills/ SSOT" >&2
+if ! node "$ROOT_DIR/scripts/validate-opencode.js" >/dev/null; then
+  echo "opencode skill frontmatter failed native validation" >&2
   failures=$((failures + 1))
 fi
 

@@ -1,11 +1,6 @@
 ---
 name: session-init
 description: "Internal sub-skill for session startup checks, Plans.md status, git state, and harness-mem resume pack. Invoked by session/startup workflows only. Do NOT load for: implementation, reviews, or mid-session tasks."
-description-en: "Internal sub-skill for session startup checks, Plans.md status, git state, and harness-mem resume pack. Invoked by session/startup workflows only. Do NOT load for: implementation, reviews, or mid-session tasks."
-description-ja: "セッション開始時の環境確認、Plans.md 状況、git状態、harness-mem resume pack を扱う内部サブスキル。session/startup 系からのみ呼ぶ。実装、レビュー、途中作業には使わない。"
-allowed-tools: ["Read", "Write", "Bash", "mcp__harness__harness_mem_resume_pack", "mcp__harness__harness_mem_sessions_list", "mcp__harness__harness_mem_health"]
-user-invocable: false
-disable-model-invocation: true
 ---
 
 # Session Init Skill

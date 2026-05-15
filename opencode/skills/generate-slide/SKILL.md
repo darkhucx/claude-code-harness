@@ -1,12 +1,6 @@
 ---
 name: generate-slide
 description: "Generate project intro slides with Nano Banana Pro. Internal/manual workflow only; use from an explicit /generate-slide command or a parent media workflow."
-description-ja: "Nano Banana Proでプロジェクト紹介スライドを自動生成。明示的な /generate-slide または親メディアワークフローからのみ使う。通常発話からの自動起動はしない。"
-description-en: "Generate project intro slides with Nano Banana Pro. Internal/manual workflow only; use from an explicit /generate-slide command or a parent media workflow."
-allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"]
-disable-model-invocation: true
-user-invocable: false
-argument-hint: "[project-path|description]"
 ---
 
 # Generate Slide Skill

@@ -535,6 +535,18 @@ else
     warn_test "claude コマンドが未インストール（claude plugin validate をスキップ）"
 fi
 
+if bash "$PLUGIN_ROOT/tests/test-distribution-archive.sh" >/dev/null 2>&1; then
+    pass_test "git archive 配布 payload に開発専用ファイルは含まれません"
+else
+    fail_test "git archive 配布 payload に開発専用ファイルが混入しています — 'bash tests/test-distribution-archive.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-public-plugin-inventory.sh" >/dev/null 2>&1; then
+    pass_test "local plugin inventory に非公開スキルは露出していません"
+else
+    fail_test "local plugin inventory に非公開スキルが露出しています — 'bash tests/test-public-plugin-inventory.sh' で詳細確認"
+fi
+
 echo ""
 echo "8. Hardening parity の検証"
 echo "----------------------------------------"

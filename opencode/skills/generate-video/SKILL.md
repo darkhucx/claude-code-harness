@@ -1,13 +1,6 @@
 ---
 name: generate-video
 description: "Auto-generate product demo videos. Internal/manual workflow only; use from an explicit /generate-video command or a parent media workflow. Requires Remotion setup."
-description-en: "Auto-generate product demo videos. Internal/manual workflow only; use from an explicit /generate-video command or a parent media workflow. Requires Remotion setup."
-description-ja: "プロダクトデモ動画を自動生成。明示的な /generate-video または親メディアワークフローからのみ使う。通常発話からの自動起動はしない。Remotion セットアップが必要。"
-allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task", "AskUserQuestion", "WebFetch"]
-disable-model-invocation: true
-user-invocable: false
-argument-hint: "[demo|arch|release]"
-context: fork
 ---
 
 # Generate Video Skill

@@ -1,11 +1,6 @@
 ---
 name: harness-plan-brief
 description: "Generate a Plan Brief HTML for non-engineer vibecoders before implementation starts. Searches harness-mem (project-only) for relevant past decisions, patterns, and Plans archive entries, then renders a single-file HTML artifact summarizing understanding, options, risks, acceptance criteria, and confidence. Use when the user requests a planning preview, a non-engineer-friendly summary before approval, or says: plan brief, planning preview, 計画概要, 計画レビュー. Do NOT load for: actual implementation, code review, release work."
-description-en: "Generate a Plan Brief HTML for non-engineer vibecoders before implementation starts. Searches harness-mem (project-only) for relevant past decisions, patterns, and Plans archive entries, then renders a single-file HTML artifact summarizing understanding, options, risks, acceptance criteria, and confidence. Use when the user requests a planning preview, a non-engineer-friendly summary before approval, or says: plan brief, planning preview, 計画概要, 計画レビュー. Do NOT load for: actual implementation, code review, release work."
-description-ja: "実装着手前に Plan Brief HTML を生成する。現プロジェクトのみで harness-mem を検索し (`strict_project: true`)、過去 decision / pattern / Plans archive から類似案件を抽出して `plan-brief-context.v1` schema に整形、`render-html.sh` で単独 HTML を生成しブラウザ自動 open する。Use when: 計画概要, 非エンジニア向け事前共有, 提案前 review。Do NOT load for: 実装作業, code review, release。"
-allowed-tools: ["Read", "Write", "Edit", "Bash"]
-argument-hint: "[task-description]"
-user-invocable: true
 ---
 
 # harness-plan-brief

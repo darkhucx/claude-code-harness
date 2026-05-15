@@ -1,11 +1,6 @@
 ---
 name: ui
 description: "Explicit helper for UI components, hero sections, forms, feedback, and contact surfaces. Do NOT load for: authentication, backend implementation, database work, or business logic."
-description-en: "Explicit helper for UI components, hero sections, forms, feedback, and contact surfaces. Do NOT load for: authentication, backend implementation, database work, or business logic."
-description-ja: "UIコンポーネント、ヒーロー、フォーム、フィードバック、問い合わせ面の明示補助スキル。認証、バックエンド実装、データベース作業、ビジネスロジックには使わない。"
-allowed-tools: ["Read", "Write", "Edit", "Bash"]
-user-invocable: false
-disable-model-invocation: true
 ---
 
 # UI Skills

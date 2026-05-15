@@ -6,6 +6,11 @@ Change history for claude-code-harness.
 
 ## [Unreleased]
 
+### Fixed
+- Tightened the Claude plugin archive gate so repo-local context, CI/test fixtures, alternative-client mirrors, and sandbox examples are excluded from `git archive` distribution payloads.
+- Added a local plugin inventory gate so ignored private/dev-only skills cannot sit under public `skills/` surfaces and appear via `claude --plugin-dir .`.
+- Updated OpenCode mirror generation and validation so OpenCode skills use lowercase kebab-case names and only supported skill frontmatter fields.
+
 ## [4.10.0] - 2026-05-12
 
 - Phase 68 local trial: TDD enforcement L1+L2+L3+L4 introduced as an opt-in workflow surface; global enforcement remains disabled by default.

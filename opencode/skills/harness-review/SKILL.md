@@ -1,22 +1,6 @@
 ---
 name: harness-review
 description: "HAR: Multi-angle code, plan, scope review. Security/quality check. Trigger: review, code review, plan review, scope analysis. Do NOT load for: implementation, new features, bugfix, setup, release."
-description-en: "HAR: Multi-angle code, plan, scope review. Security/quality check. Trigger: review, code review, plan review, scope analysis. Do NOT load for: implementation, new features, bugfix, setup, release."
-description-ja: "HAR:コード・プラン・スコープを多角的にレビュー。セキュリティ・品質チェック。レビュー、コードレビュー、プランレビュー、スコープ分析で起動。実装・新機能・バグ修正・セットアップ・リリースには使わない。"
-kind: workflow
-purpose: "Review code, plans, scope, and evidence before acceptance"
-trigger: "review, code review, plan review, scope analysis"
-shape: evaluate
-role: evaluator
-pair: harness-work
-owner: harness-core
-since: "2026-05-05"
-allowed-tools: ["Read", "Grep", "Glob", "Bash", "Task", "Monitor", "AskUserQuestion"]
-argument-hint: "[code|plan|scope] [--dual] [--team-debate] [--security] [--ui-rubric]"
-context: fork
-effort: high
-user-invocable: true
-disable-model-invocation: true
 ---
 
 # Harness Review

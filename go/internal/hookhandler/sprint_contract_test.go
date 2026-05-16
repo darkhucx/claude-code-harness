@@ -252,6 +252,167 @@ func TestSprintContractGenerator_StatusMarkerAliases(t *testing.T) {
 	}
 }
 
+func TestSprintContractGenerator_TDDHybridInference(t *testing.T) {
+	cases := []struct {
+		name          string
+		title         string
+		dod           string
+		setup         func(t *testing.T, dir string)
+		wantRequired  bool
+		wantFramework string
+		wantReason    *string
+	}{
+		{
+			name:          "required tag wins without framework",
+			title:         "[tdd:required] docs-only note",
+			dod:           "Update `docs/tdd.md` and keep the explicit tag authoritative.",
+			wantRequired:  true,
+			wantFramework: "none",
+		},
+		{
+			name:  "skip tag records reason over source inference",
+			title: "[tdd:skip:legacy-migration] touch Go source",
+			dod:   "Update `go/internal/hookhandler/sprint_contract.go` safely.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/harness\n")
+			},
+			wantRequired:  false,
+			wantFramework: "go",
+			wantReason:    strPtr("legacy-migration"),
+		},
+		{
+			name:  "go source path with framework requires tdd",
+			title: "Go source contract",
+			dod:   "Change `go/internal/hookhandler/sprint_contract.go`.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/harness\n")
+			},
+			wantRequired:  true,
+			wantFramework: "go",
+		},
+		{
+			name:  "top-level cmd path with framework requires tdd",
+			title: "Go command source contract",
+			dod:   "Change `cmd/harness/main.go`.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/harness\n")
+			},
+			wantRequired:  true,
+			wantFramework: "go",
+		},
+		{
+			name:  "top-level pkg path with framework requires tdd",
+			title: "Go package source contract",
+			dod:   "Change `pkg/runtime/options.go`.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/harness\n")
+			},
+			wantRequired:  true,
+			wantFramework: "go",
+		},
+		{
+			name:  "src path with vitest requires tdd",
+			title: "Node app source",
+			dod:   "Change `src/contract.ts`.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "package.json"), `{"scripts":{"test":"vitest run"}}`)
+			},
+			wantRequired:  true,
+			wantFramework: "vitest",
+		},
+		{
+			name:  "docs scripts claude only skips as docs-only",
+			title: "Docs-only wiring",
+			dod:   "Update `docs/tdd.md`, `scripts/log-tdd-red.sh`, and `.claude/rules/tdd-paths.yaml`.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/harness\n")
+			},
+			wantRequired:  false,
+			wantFramework: "go",
+			wantReason:    strPtr("docs-only"),
+		},
+		{
+			name:          "source path without framework skips with no-framework reason",
+			title:         "Source without tests",
+			dod:           "Change `src/no_framework.ts`.",
+			wantRequired:  false,
+			wantFramework: "none",
+			wantReason:    strPtr("no-test-framework-detected"),
+		},
+		{
+			name:  "default no path is off",
+			title: "Generic planning task",
+			dod:   "Clarify acceptance wording without file scope.",
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/harness\n")
+			},
+			wantRequired:  false,
+			wantFramework: "go",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tc.setup != nil {
+				tc.setup(t, dir)
+			}
+			plansPath := filepath.Join(dir, "Plans.md")
+			writeFile(t, plansPath, "| Task | 内容 | DoD | Depends | Status |\n"+
+				"|------|------|-----|---------|--------|\n"+
+				"| TDD-1 | "+tc.title+" | "+tc.dod+" | - | cc:TODO |\n")
+
+			g := &SprintContractGenerator{ProjectRoot: dir, PlansFile: plansPath}
+			doc, err := g.Generate("TDD-1")
+			if err != nil {
+				t.Fatalf("Generate: %v", err)
+			}
+
+			if doc.Contract.TDDRequired != tc.wantRequired {
+				t.Fatalf("unexpected tdd_required: got=%v want=%v", doc.Contract.TDDRequired, tc.wantRequired)
+			}
+			if doc.Contract.TestFramework != tc.wantFramework {
+				t.Fatalf("unexpected test_framework: got=%q want=%q", doc.Contract.TestFramework, tc.wantFramework)
+			}
+			if tc.wantReason == nil {
+				if doc.Contract.SkipTDDReason != nil {
+					t.Fatalf("expected skip_tdd_reason=nil, got %q", *doc.Contract.SkipTDDReason)
+				}
+			} else if doc.Contract.SkipTDDReason == nil || *doc.Contract.SkipTDDReason != *tc.wantReason {
+				t.Fatalf("unexpected skip_tdd_reason: got=%v want=%q", doc.Contract.SkipTDDReason, *tc.wantReason)
+			}
+			if tc.wantRequired {
+				if got := doc.Contract.TestTodoList; len(got) != 3 || got[0] != "normal" || got[1] != "boundary" || got[2] != "error" {
+					t.Fatalf("unexpected test_todo_list: %+v", got)
+				}
+			} else if len(doc.Contract.TestTodoList) != 0 {
+				t.Fatalf("expected empty test_todo_list for skipped/default task, got %+v", doc.Contract.TestTodoList)
+			}
+		})
+	}
+}
+
+func writeFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func strPtr(value string) *string {
+	return &value
+}
+
 func TestSprintContractGenerator_WriteRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	plansPath := filepath.Join(dir, "Plans.md")

@@ -2,14 +2,97 @@ package guardrail
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/Chachamaru127/claude-code-harness/go/internal/state"
+	"github.com/Chachamaru127/claude-code-harness/go/pkg/config"
 	"github.com/Chachamaru127/claude-code-harness/go/pkg/hookproto"
 )
 
+const (
+	tddEnforceLevelOff     = config.TDDEnforceLevelOff
+	tddEnforceLevelCentral = config.TDDEnforceLevelCentral
+	tddEnforceLevelMax     = config.TDDEnforceLevelMax
+)
+
+type tddRuntimeConfig struct {
+	Level               string
+	HookEnabled         bool
+	BypassAuditRequired bool
+}
+
 // isTruthy checks if an env var value is truthy ("1", "true", "yes").
 func isTruthy(value string) bool {
-	return value == "1" || value == "true" || value == "yes"
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeTddEnforceLevel(value string) string {
+	switch strings.ToLower(strings.Trim(strings.TrimSpace(value), `"'`)) {
+	case tddEnforceLevelCentral:
+		return tddEnforceLevelCentral
+	case tddEnforceLevelMax:
+		return tddEnforceLevelMax
+	default:
+		return tddEnforceLevelOff
+	}
+}
+
+func readTddRuntimeConfigFromHarnessTOML(path string) (tddRuntimeConfig, bool) {
+	runtime := tddRuntimeConfig{Level: tddEnforceLevelOff}
+	cfg, err := config.ParseFile(path)
+	if err != nil {
+		return runtime, false
+	}
+	if !cfg.TDD.Enforce.Enabled {
+		return runtime, true
+	}
+
+	runtime.Level = normalizeTddEnforceLevel(cfg.TDD.Enforce.Level)
+	runtime.HookEnabled = cfg.TDD.Enforce.HookEnabled
+	runtime.BypassAuditRequired = cfg.TDD.Enforce.BypassAuditRequired
+	return runtime, true
+}
+
+func resolveTddRuntimeConfig(input hookproto.HookInput, projectRoot string) tddRuntimeConfig {
+	cfg := tddRuntimeConfig{Level: tddEnforceLevelOff}
+	candidates := []string{filepath.Join(projectRoot, "harness.toml")}
+	if input.PluginRoot != "" && input.PluginRoot != projectRoot {
+		candidates = append(candidates, filepath.Join(input.PluginRoot, "harness.toml"))
+	}
+
+	for _, path := range candidates {
+		if loaded, ok := readTddRuntimeConfigFromHarnessTOML(path); ok {
+			cfg = loaded
+			break
+		}
+	}
+
+	envTddEnabled := os.Getenv("HARNESS_TDD_ENFORCE_ENABLED")
+	if value := os.Getenv("HARNESS_TDD_ENFORCE_LEVEL"); value != "" {
+		cfg.Level = normalizeTddEnforceLevel(value)
+	}
+	if value := os.Getenv("HARNESS_TDD_HOOK_ENABLED"); value != "" {
+		cfg.HookEnabled = isTruthy(value)
+	}
+	if value := os.Getenv("HARNESS_TDD_BYPASS_AUDIT_REQUIRED"); value != "" {
+		cfg.BypassAuditRequired = isTruthy(value)
+	}
+	if envTddEnabled != "" && !isTruthy(envTddEnabled) {
+		cfg.Level = tddEnforceLevelOff
+		cfg.HookEnabled = false
+	}
+
+	if cfg.Level == tddEnforceLevelOff {
+		cfg.HookEnabled = false
+	}
+
+	return cfg
 }
 
 // BuildContext constructs a RuleContext from a HookInput and environment variables.
@@ -37,6 +120,9 @@ func BuildContext(input hookproto.HookInput) hookproto.RuleContext {
 		isTruthy(os.Getenv("ULTRAWORK_MODE"))
 	codexMode := isTruthy(os.Getenv("HARNESS_CODEX_MODE"))
 	breezingRole := os.Getenv("HARNESS_BREEZING_ROLE")
+	tddRuntime := resolveTddRuntimeConfig(input, projectRoot)
+	tddBypass := isTruthy(os.Getenv("HARNESS_TDD_BYPASS"))
+	tddBypassReason := strings.TrimSpace(os.Getenv("HARNESS_TDD_BYPASS_REASON"))
 
 	// SQLite から work_states を補完する（セッション ID がある場合のみ）
 	// フック高速パスの制約（SPEC.md §12）に従い、I/O エラーは無視する。
@@ -59,6 +145,11 @@ func BuildContext(input hookproto.HookInput) hookproto.RuleContext {
 		CodexMode:                 codexMode,
 		BreezingRole:              breezingRole,
 		ProtectedBranchPushPolicy: resolveProtectedBranchPushPolicy(input, projectRoot),
+		TddEnforceLevel:           tddRuntime.Level,
+		TddHookEnabled:            tddRuntime.HookEnabled,
+		TddBypass:                 tddBypass,
+		TddBypassReason:           tddBypassReason,
+		TddBypassReasonRequired:   tddBypass && (tddRuntime.BypassAuditRequired || tddBypassReason == ""),
 	}
 }
 

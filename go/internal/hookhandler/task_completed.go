@@ -139,38 +139,76 @@ func (h *taskCompletedHandler) handle(input taskCompletedInput, rawData []byte, 
 	// Webhook 通知（同期、5秒タイムアウト）
 	h.fireWebhook(rawData)
 
+	// terminalSequence (CC 2.1.141+, opt-in via HARNESS_TERMINAL_NOTIFY) 用の title / body。
+	// 詳細: .claude/rules/hooks-2.1.139-plus.md
+	tsTitle, tsBody := taskCompletedTerminalTitleBody(taskSubject, completedCount, totalTasks)
+	tsSeq := BuildTerminalSequence(tsTitle, tsBody)
+
 	// 停止判定
 	if !requestContinue || stopReason != "" {
 		finalReason := stopReason
 		if finalReason == "" {
 			finalReason = "TaskCompleted requested stop"
 		}
-		return writeJSON(out, map[string]interface{}{
+		resp := map[string]interface{}{
 			"continue":   false,
 			"stopReason": finalReason,
-		})
+		}
+		if tsSeq != "" {
+			resp["terminalSequence"] = tsSeq
+		}
+		return writeJSON(out, resp)
 	}
 
 	// 全タスク完了判定
 	if totalTasks > 0 && completedCount >= totalTasks {
 		h.maybeFinalizeHarnessMem(ts)
-		return writeJSON(out, map[string]interface{}{
+		resp := map[string]interface{}{
 			"continue":   false,
 			"stopReason": "all_tasks_completed",
-		})
+		}
+		if tsSeq != "" {
+			resp["terminalSequence"] = tsSeq
+		}
+		return writeJSON(out, resp)
 	}
 
 	// プログレスサマリー付き承認レスポンス
 	if totalTasks > 0 && taskSubject != "" {
 		progressMsg := fmt.Sprintf("Progress: Task %d/%d 完了 — %q", completedCount, totalTasks, taskSubject)
-		return writeJSON(out, map[string]string{
+		resp := map[string]interface{}{
 			"decision":      "approve",
 			"reason":        "TaskCompleted tracked",
 			"systemMessage": progressMsg,
-		})
+		}
+		if tsSeq != "" {
+			resp["terminalSequence"] = tsSeq
+		}
+		return writeJSON(out, resp)
 	}
 
-	return writeJSON(out, approveResponse("TaskCompleted tracked"))
+	resp := map[string]interface{}{
+		"decision": "approve",
+		"reason":   "TaskCompleted tracked",
+	}
+	if tsSeq != "" {
+		resp["terminalSequence"] = tsSeq
+	}
+	return writeJSON(out, resp)
+}
+
+// taskCompletedTerminalTitleBody は TaskCompleted 通知の terminalSequence title/body を組み立てる。
+// progress 情報がある場合は body に件数を含める。
+func taskCompletedTerminalTitleBody(taskSubject string, completed, total int) (string, string) {
+	title := "Claude Code: task completed"
+	if taskSubject != "" {
+		title = "Claude Code: " + taskSubject
+	}
+	body := ""
+	if total > 0 {
+		body = fmt.Sprintf("%d/%d completed", completed, total)
+	}
+	return title, body
 }
 
 // approveResponse は標準承認レスポンスを返す。

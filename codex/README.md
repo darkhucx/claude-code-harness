@@ -113,6 +113,7 @@ cp claude-code-harness/codex/.codex/config.toml "$CODEX_HOME/config.toml"
 ## Provider And Model Policy
 
 Codex `0.123.0` adds a built-in `amazon-bedrock` provider with AWS profile support.
+Codex `0.130.0` stable (`rust-v0.130.0`, published `2026-05-08T23:09:55Z`) also lets Bedrock auth use AWS console-login credentials from `aws login` profiles.
 Harness documents that path, but does not force it into the shipped `config.toml`.
 
 Use Bedrock only in the user or project config that actually needs it:
@@ -124,7 +125,8 @@ model_provider = "amazon-bedrock"
 profile = "codex-bedrock"
 ```
 
-Harness does not write AWS credentials, Bedrock endpoints, or provider secrets.
+Harness does not write AWS credentials, Bedrock endpoints, provider secrets, or AWS console-login credential material.
+Run `aws login` and maintain the resulting AWS profile outside Harness; Harness only points Codex at the profile name when the user opts in.
 Claude Code Bedrock settings such as `CLAUDE_CODE_USE_BEDROCK`, Anthropic model overrides, and `modelOverrides` are separate from Codex `model_provider`.
 
 Codex `0.123.0` also refreshes bundled model metadata, including the current `gpt-5.4` default.
@@ -232,6 +234,25 @@ test proves the replacement approval/sandbox command on the installed Codex
 version.
 
 Details: `docs/codex-permission-profiles-policy.md`.
+
+## Codex 0.130.0 Workflow Policy
+
+Codex `0.130.0` stable (`rust-v0.130.0`, published `2026-05-08T23:09:55Z`) changes several app-server and plugin workflows.
+Harness treats them as opt-in operational surfaces, not new shipped defaults.
+
+- `codex remote-control` is the simpler top-level entrypoint for a headless remotely controllable app-server. Start it explicitly; the shipped Harness config does not enable remote-control defaults.
+- App-server clients can page large threads. For long Breezing or loop runs, inspect the needed page range instead of assuming one transcript fetch is complete.
+- `view_image` resolves files through selected environments in multi-environment sessions. Report the selected environment and workdir with image evidence.
+- Live app-server threads pick up config changes without restart. Still verify config diffs and avoid logging secrets or provider credentials.
+- Turn diffs stay accurate across `apply_patch`, including partial failures. Use them for review context, then confirm with `git diff` and tests.
+- Plugin details now show bundled hooks. Harness keeps bundled hooks opt-in and checks plugin details before install or share.
+- Plugin sharing exposes link metadata and discoverability controls. Treat metadata and discoverability as release surface, not decoration.
+- Configurable OpenTelemetry trace metadata is useful for debugging and triage, but do not place user data, customer data, API keys, or provider credentials in trace metadata.
+- Built-in MCPs are now first-class runtime servers. Keep built-in MCP ownership separate from plugin-provided MCP ownership.
+- The `CODEX_HOME` environments TOML provider is a user-level environment source. Report the selected environment and keep write turns on one primary environment.
+- Codex removed extra skills list roots; use the installed Harness mirror or explicit `[[skills.config]]` path-based loading instead of relying on implicit extra roots.
+
+Details: `docs/codex-plugin-workflows-policy.md`.
 
 ## Runtime Behavior
 

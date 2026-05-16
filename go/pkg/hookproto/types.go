@@ -135,4 +135,9 @@ type RuleContext struct {
 	CodexMode                 bool
 	BreezingRole              string // "" means not in breezing mode
 	ProtectedBranchPushPolicy string // ask, deny, or allow
+	TddEnforceLevel           string // off, central, or max
+	TddHookEnabled            bool
+	TddBypass                 bool
+	TddBypassReason           string
+	TddBypassReasonRequired   bool
 }

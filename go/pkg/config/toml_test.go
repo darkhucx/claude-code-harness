@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Chachamaru127/claude-code-harness/go/pkg/config"
@@ -46,6 +48,18 @@ deniedDomains = ["169.254.169.254", "metadata.google.internal"]
 [safety.sandbox.filesystem]
 denyRead = [".env", "secrets/**", "**/*.pem"]
 allowRead = [".env.example", "docs/**"]
+
+[tdd]
+adopt_todo_list_first = true
+adopt_triangulation = "guide-only"
+adopt_fake_implementation = false
+
+[tdd.enforce]
+enabled = false
+level = "off"
+hook_enabled = false
+default_max_red_log_age_minutes = 60
+bypass_audit_required = true
 
 `)
 
@@ -124,6 +138,31 @@ func TestParse_Full(t *testing.T) {
 		t.Errorf("sandbox.filesystem.allowRead len = %d, want 2", len(cfg.Safety.Sandbox.Filesystem.AllowRead))
 	}
 
+	// [tdd]
+	if !cfg.TDD.AdoptTodoListFirst {
+		t.Error("tdd.adopt_todo_list_first = false, want true")
+	}
+	if cfg.TDD.AdoptTriangulation != "guide-only" {
+		t.Errorf("tdd.adopt_triangulation = %q, want guide-only", cfg.TDD.AdoptTriangulation)
+	}
+	if cfg.TDD.AdoptFakeImplementation {
+		t.Error("tdd.adopt_fake_implementation = true, want false")
+	}
+	if cfg.TDD.Enforce.Enabled {
+		t.Error("tdd.enforce.enabled = true, want false")
+	}
+	if cfg.TDD.Enforce.Level != config.TDDEnforceLevelOff {
+		t.Errorf("tdd.enforce.level = %q, want off", cfg.TDD.Enforce.Level)
+	}
+	if cfg.TDD.Enforce.HookEnabled {
+		t.Error("tdd.enforce.hook_enabled = true, want false")
+	}
+	if cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes != 60 {
+		t.Errorf("tdd.enforce.default_max_red_log_age_minutes = %d, want 60", cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes)
+	}
+	if !cfg.TDD.Enforce.BypassAuditRequired {
+		t.Error("tdd.enforce.bypass_audit_required = false, want true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +249,94 @@ func TestParse_Empty(t *testing.T) {
 	// All fields must be zero values
 	if cfg.Project.Name != "" {
 		t.Errorf("project.name should be empty, got %q", cfg.Project.Name)
+	}
+}
+
+func TestParse_TDDDefaultFallback(t *testing.T) {
+	cfg, err := config.ParseBytes([]byte(`
+[project]
+name = "minimal"
+`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.TDD.Enforce.Enabled {
+		t.Error("tdd.enforce.enabled default = true, want false")
+	}
+	if cfg.TDD.Enforce.Level != config.TDDEnforceLevelOff {
+		t.Errorf("tdd.enforce.level default = %q, want off", cfg.TDD.Enforce.Level)
+	}
+	if cfg.TDD.Enforce.HookEnabled {
+		t.Error("tdd.enforce.hook_enabled default = true, want false")
+	}
+	if cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes != 60 {
+		t.Errorf("tdd.enforce.default_max_red_log_age_minutes default = %d, want 60", cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes)
+	}
+	if !cfg.TDD.Enforce.BypassAuditRequired {
+		t.Error("tdd.enforce.bypass_audit_required default = false, want true")
+	}
+}
+
+func TestParse_TDDEnforceLevels(t *testing.T) {
+	for _, level := range []string{
+		config.TDDEnforceLevelOff,
+		config.TDDEnforceLevelCentral,
+		config.TDDEnforceLevelMax,
+	} {
+		data := []byte(`
+[tdd.enforce]
+enabled = true
+level = "` + level + `"
+hook_enabled = true
+default_max_red_log_age_minutes = 15
+bypass_audit_required = false
+`)
+		cfg, err := config.ParseBytes(data)
+		if err != nil {
+			t.Fatalf("level %q should parse: %v", level, err)
+		}
+		if !cfg.TDD.Enforce.Enabled {
+			t.Errorf("level %q: enabled = false, want true", level)
+		}
+		if cfg.TDD.Enforce.Level != level {
+			t.Errorf("level %q: parsed level = %q", level, cfg.TDD.Enforce.Level)
+		}
+		if !cfg.TDD.Enforce.HookEnabled {
+			t.Errorf("level %q: hook_enabled = false, want true", level)
+		}
+		if cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes != 15 {
+			t.Errorf("level %q: default_max_red_log_age_minutes = %d, want 15", level, cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes)
+		}
+		if cfg.TDD.Enforce.BypassAuditRequired {
+			t.Errorf("level %q: bypass_audit_required = true, want false", level)
+		}
+	}
+}
+
+func TestParse_TDDRejectMalformedLevelBytes(t *testing.T) {
+	data := []byte(`
+[tdd.enforce]
+level = "strict"
+`)
+	_, err := config.ParseBytes(data)
+	if err == nil {
+		t.Fatal("expected error for malformed tdd.enforce.level, got nil")
+	}
+}
+
+func TestParse_TDDRejectMalformedLevelFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "harness.toml")
+	data := []byte(`
+[tdd.enforce]
+level = "strict"
+`)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("write temp harness.toml: %v", err)
+	}
+
+	_, err := config.ParseFile(path)
+	if err == nil {
+		t.Fatal("expected error for malformed tdd.enforce.level from file, got nil")
 	}
 }
 

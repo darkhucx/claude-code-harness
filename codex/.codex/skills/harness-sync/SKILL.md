@@ -30,6 +30,7 @@ Plans.md と実装状況を照合し、差分を検出・更新する。
 | `harness-sync` | 進捗同期 + レトロスペクティブ（デフォルト ON） |
 | `harness-sync --no-retro` | 進捗同期のみ（レトロスキップ） |
 | `harness-sync --snapshot` | スナップショット保存（進捗の時点記録） |
+| `harness-sync --plan roadmap` | named Plans の `roadmap` を同期 |
 | "今どこ？" / "進捗確認" | 同上 |
 
 ## オプション
@@ -38,10 +39,12 @@ Plans.md と実装状況を照合し、差分を検出・更新する。
 |----------|------|----------|
 | `--snapshot` | 現在の進捗をスナップショットとして保存 | false |
 | `--no-retro` | レトロスペクティブをスキップ | false（デフォルトで実行） |
+| `--plan NAME` | `plans/manifest.json` の named plan を使う | active/default |
 
 ## Step 0: Plans.md 検証
 
 Plans.md の存在とフォーマットを確認する。問題がある場合は即座に案内して停止する。
+複数 Plans.md がある repo では、対象 plan を `scripts/plan-registry.sh list` または `--plan NAME` で確認してから読む。
 
 | 状態 | 案内 |
 |------|------|

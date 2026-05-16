@@ -4,14 +4,18 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 usage() {
   cat >&2 <<'EOF'
-Usage: scripts/plans-issue-bridge.sh [--plans PATH] [--format json|markdown] [--team-mode] [--output PATH]
+Usage: scripts/plans-issue-bridge.sh [--plans PATH|--plan NAME] [--format json|markdown] [--team-mode] [--output PATH]
 EOF
   exit 1
 }
 
 PLANS_FILE="Plans.md"
+PLANS_FILE_EXPLICIT="false"
+PLAN_NAME=""
 FORMAT="json"
 TEAM_MODE="false"
 OUTPUT_FILE=""
@@ -19,10 +23,27 @@ OUTPUT_FILE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --plans)
+      if [ $# -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "--plans requires a path" >&2
+        exit 1
+      fi
       PLANS_FILE="${2:-}"
+      PLANS_FILE_EXPLICIT="true"
+      shift 2
+      ;;
+    --plan)
+      if [ $# -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "--plan requires a plan name" >&2
+        exit 1
+      fi
+      PLAN_NAME="${2:-}"
       shift 2
       ;;
     --format)
+      if [ $# -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "--format requires json or markdown" >&2
+        exit 1
+      fi
       FORMAT="${2:-}"
       shift 2
       ;;
@@ -35,6 +56,10 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     --output)
+      if [ $# -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "--output requires a path" >&2
+        exit 1
+      fi
       OUTPUT_FILE="${2:-}"
       shift 2
       ;;
@@ -44,6 +69,7 @@ while [ $# -gt 0 ]; do
     *)
       if [ -z "$PLANS_FILE" ] || [ "$PLANS_FILE" = "Plans.md" ]; then
         PLANS_FILE="$1"
+        PLANS_FILE_EXPLICIT="true"
         shift
       else
         usage
@@ -51,6 +77,14 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+if [ -n "$PLAN_NAME" ]; then
+  if [ "$PLANS_FILE_EXPLICIT" = "true" ]; then
+    echo "--plan cannot be combined with --plans or a positional Plans file" >&2
+    exit 1
+  fi
+  PLANS_FILE="$(PROJECT_ROOT="$(pwd)" bash "${SCRIPT_DIR}/plan-registry.sh" path "$PLAN_NAME")"
+fi
 
 if [ ! -f "$PLANS_FILE" ]; then
   echo "Plans file not found: $PLANS_FILE" >&2

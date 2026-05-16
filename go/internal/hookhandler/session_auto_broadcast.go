@@ -28,6 +28,7 @@ var autoBroadcastPatterns = []string{
 // autoBroadcastInput は session-auto-broadcast.sh に渡される stdin JSON。
 type autoBroadcastInput struct {
 	SessionID string `json:"session_id"`
+	CWD       string `json:"cwd"`
 	ToolInput struct {
 		FilePath string `json:"file_path"`
 		Path     string `json:"path"`
@@ -80,6 +81,13 @@ func HandleSessionAutoBroadcast(in io.Reader, out io.Writer) error {
 	var input autoBroadcastInput
 	if err := json.Unmarshal(data, &input); err != nil {
 		return emptyPostToolOutput(out)
+	}
+
+	if input.CWD != "" {
+		info, statErr := os.Stat(input.CWD)
+		if statErr != nil || !info.IsDir() {
+			return emptyPostToolOutput(out)
+		}
 	}
 
 	// file_path または path を取得
@@ -193,4 +201,3 @@ func writeBroadcastNotification(filePath, matchedPattern, sessionID string) erro
 	}
 	return nil
 }
-

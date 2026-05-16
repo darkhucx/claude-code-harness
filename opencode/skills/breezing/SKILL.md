@@ -1,21 +1,6 @@
 ---
 name: breezing
 description: "团队执行模式 — harness-work 的团队协作别名。breezing、团队执行、全部搞定 等触发。"
-description-ja: "チーム実行モード — harness-work のチーム協調エイリアス。breezing, チーム実行, 全部やって でトリガー。"
-description-zh: "团队执行模式 — harness-work 的团队协作别名。breezing、团队执行、全部搞定 等触发。"
-description-en: "Team execution mode — backward-compatible alias for harness-work with team orchestration."
-kind: workflow
-purpose: "Wrap harness-work with team execution orchestration"
-trigger: "breezing, team execution, do everything"
-shape: wrap
-role: orchestrator
-base: harness-work
-pair: harness-review
-owner: harness-core
-since: "2026-05-05"
-allowed-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Task", "WebSearch", "Monitor"]
-argument-hint: "[all|N-M|--codex|--parallel N|--no-commit|--no-discuss|--auto-mode]"
-user-invocable: true
 ---
 
 # Breezing — Team Execution Mode
@@ -53,6 +38,13 @@ user-invocable: true
 > **長時間セッション推奨 (CC 2.1.108+)**:
 > セッション長が 30 分を超える見込みの場合、plugin bundle root 解決後に
 > `bash "${HARNESS_PLUGIN_ROOT}/scripts/enable-1h-cache.sh"` を実行して 1 時間 prompt cache を opt-in すること。
+> このスクリプトは `env.local` に `export ENABLE_PROMPT_CACHING_1H=1` を追記する (冪等)。
+> 5 分 TTL の既定キャッシュでは breezing の 1 時間超セッションで cache miss が累積し
+> input token コストが最大 12 倍になりうるため、長時間 team 実行では明示的に opt-in する。
+> Codex CLI 子プロセス (`scripts/codex-companion.sh task --write` 等) は通常 env 継承で
+> `ENABLE_PROMPT_CACHING_1H` を読むが、`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` が有効な場合は
+> 明示的に export を維持する shell wrapper が必要。詳細は
+> [`docs/long-running-harness.md`](../../docs/long-running-harness.md) を参照。
 
 ## Execution
 

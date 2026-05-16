@@ -1,0 +1,42 @@
+{
+  "schema": "acceptance-context.v1",
+  "user_request": "Plan Brief MVP を 5 タスクで完走",
+  "user_request_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "demo_artifacts": [
+    { "kind": "screenshot", "path": ".claude/state/views/plan-brief-2026-05-09T08-55-00.html" },
+    { "kind": "text",       "path": "tests/test-plan-brief-e2e.sh の出力ログ" }
+  ],
+  "verified_criteria": [
+    { "name": "AC-1: SKILL.md 存在",       "passed": true, "evidence": "skills/harness-plan-brief/SKILL.md (commit b523dee1)" },
+    { "name": "AC-2: project enforcement", "passed": true, "evidence": "test-harness-plan-brief.sh PASS" },
+    { "name": "AC-3: cross-project 禁止",  "passed": true, "evidence": "grep で cross-project は restricted context のみ確認" },
+    { "name": "AC-4: JSON Schema 妥当性",  "passed": true, "evidence": "Python jsonschema で validate" },
+    { "name": "AC-5: e2e 通し検証",        "passed": true, "evidence": "test-plan-brief-e2e.sh 29/29 PASS" }
+  ],
+  "unverified_caveats": [],
+  "past_issue_patterns": [
+    { "pattern_id": "P5",  "title": "Hook script template",      "verified_in_current_task": true },
+    { "pattern_id": "P29", "title": "dual hooks.json sync",      "verified_in_current_task": true }
+  ],
+  "recommendation": "ship",
+  "recommendation_evidence": [
+    "verified 5 件 / 全 5 件 (100%) → ship 閾値以上 (>= 0.8)",
+    "全 unverified caveats が 0 件で残留リスクなし",
+    "過去問題パターン 2 件すべて現タスクで verified"
+  ],
+  "project": "claude-code-harness",
+  "generated_at": "2026-05-09T18:30:00Z",
+  "verified_criteria_items": [
+    { "name": "AC-1: SKILL.md 存在",       "status_label": "passed", "evidence": "skills/harness-plan-brief/SKILL.md (commit b523dee1)", "evidence_warn": "" },
+    { "name": "AC-2: project enforcement", "status_label": "passed", "evidence": "test-harness-plan-brief.sh PASS", "evidence_warn": "" },
+    { "name": "AC-3: cross-project 禁止",  "status_label": "passed", "evidence": "grep で cross-project は restricted context のみ確認", "evidence_warn": "" },
+    { "name": "AC-4: JSON Schema 妥当性",  "status_label": "passed", "evidence": "Python jsonschema で validate", "evidence_warn": "" },
+    { "name": "AC-5: e2e 通し検証",        "status_label": "passed", "evidence": "test-plan-brief-e2e.sh 29/29 PASS", "evidence_warn": "" }
+  ],
+  "unverified_caveats_items": [],
+  "recommendation_evidence_items": [
+    { "text": "verified 5 件 / 全 5 件 (100%) → ship 閾値以上 (>= 0.8)" },
+    { "text": "全 unverified caveats が 0 件で残留リスクなし" },
+    { "text": "過去問題パターン 2 件すべて現タスクで verified" }
+  ]
+}

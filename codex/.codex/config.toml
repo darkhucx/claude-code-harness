@@ -1,4 +1,4 @@
-# Codex Team Config template (Codex CLI 0.110.0+)
+# Codex Team Config template (Codex CLI 0.110.0+, policy aligned through 0.130.0 stable)
 # Copy to ${CODEX_HOME:-~/.codex}/config.toml (user) or .codex/config.toml (project).
 
 [features]
@@ -9,11 +9,27 @@ multi_agent = true
 # - Claude Code already owns the primary runtime hook/guardrail path in this repo
 # - managed requirements.toml is the right place for org-level Codex hook policy
 # - MCP/apply_patch/long-running Bash observation needs dedicated Codex package tests
+# - Codex 0.130.0 plugin details can show bundled hooks, but Harness keeps
+#   bundled hooks opt-in and does not add inline hooks here
 # Details: docs/upstream-followups-phase56-2026-04-25.md
+
+# Codex 0.130.0 adds `codex remote-control` as the simpler top-level entrypoint
+# for a headless remotely controllable app-server. Harness does not enable remote-control defaults
+# in shipped config; operators should start it explicitly
+# and confirm port/auth/environment boundaries per
+# docs/codex-plugin-workflows-policy.md.
+#
+# Codex 0.130.0 also adds configurable OpenTelemetry trace metadata,
+# built-in MCPs as first-class runtime servers, and a CODEX_HOME environments
+# TOML provider. Keep these as explicit user/project policy. Do not put secrets
+# in trace metadata, do not conflate built-in MCP ownership with plugin MCP
+# ownership, and keep write turns pinned to one primary environment.
 
 # Codex 0.123.0+ has a built-in amazon-bedrock provider.
 # Harness does not set it as the default. Add this only in user/project config
-# when the current environment should use Bedrock:
+# when the current environment should use Bedrock. Codex 0.130.0 can use
+# AWS console-login credentials from `aws login` profiles; Harness still only
+# points at the profile name and never writes AWS credential material:
 #
 # model_provider = "amazon-bedrock"
 #

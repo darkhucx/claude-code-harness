@@ -45,11 +45,16 @@ RUNTIME_REVIEW_SCRIPT="${CODEX_LOOP_RUNTIME_REVIEW_SCRIPT:-${HARNESS_INSTALL_ROO
 WRITE_REVIEW_RESULT_SCRIPT="${CODEX_LOOP_WRITE_REVIEW_RESULT_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/write-review-result.sh}"
 PLATEAU_SCRIPT="${CODEX_LOOP_PLATEAU_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/detect-review-plateau.sh}"
 CHECKPOINT_SCRIPT="${CODEX_LOOP_CHECKPOINT_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/auto-checkpoint.sh}"
-MEM_CLIENT="${CODEX_LOOP_MEM_CLIENT:-${HARNESS_INSTALL_ROOT}/scripts/harness-mem-client.sh}"
+# Phase 60 (v2.20.10) 以降、scripts/harness-mem-client.sh は claude-harness
+# 配布から除外された (managed-companion 移行)。env 指定がない既定では空文字とし、
+# resume-pack 呼び出しを log 付きで skip する (line 1392-1397 の graceful path)。
+# CODEX_LOOP_MEM_CLIENT=/abs/path で test fixture 等を指定可能。
+MEM_CLIENT="${CODEX_LOOP_MEM_CLIENT:-}"
 NODE_BIN="${NODE_BIN:-node}"
 GENERATE_CONTRACT_SCRIPT="${CODEX_LOOP_GENERATE_CONTRACT_SCRIPT:-${HARNESS_INSTALL_ROOT}/scripts/generate-sprint-contract.js}"
 
 POLL_INTERVAL_SEC="${CODEX_LOOP_POLL_INTERVAL_SEC:-5}"
+RUNNER_FINALIZED=0
 
 if [ -f "${CONFIG_UTILS}" ]; then
   # shellcheck source=scripts/config-utils.sh
@@ -60,7 +65,7 @@ fi
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/codex-loop.sh start <all|N|N-M> [--max-cycles N] [--pacing worker|ci|plateau|night] [--executor breezing|task] [--max-workers N|max]
+  scripts/codex-loop.sh start <all|N|N-M> [--plan NAME] [--max-cycles N] [--pacing worker|ci|plateau|night] [--executor breezing|task] [--max-workers N|max]
   scripts/codex-loop.sh status [--json]
   scripts/codex-loop.sh stop
   scripts/codex-loop.sh run --run-id <id>
@@ -185,6 +190,14 @@ append_jsonl() {
 }
 
 plans_file_path() {
+  if [ -n "${HARNESS_PLAN_FILE:-}" ]; then
+    case "${HARNESS_PLAN_FILE}" in
+      /*) printf '%s\n' "${HARNESS_PLAN_FILE}" ;;
+      *) printf '%s\n' "${PROJECT_ROOT}/${HARNESS_PLAN_FILE}" ;;
+    esac
+    return 0
+  fi
+
   local plans_file=""
   if [ -f "${CONFIG_UTILS}" ]; then
     plans_file="$(
@@ -337,6 +350,51 @@ acquire_lock() {
 
 release_lock() {
   rm -rf "${LOCK_DIR}" 2>/dev/null || true
+}
+
+runner_log_tail_one_line() {
+  local max_lines="${1:-20}"
+  if [ ! -f "${RUNNER_LOG}" ]; then
+    return 0
+  fi
+  tail -n "${max_lines}" "${RUNNER_LOG}" 2>/dev/null \
+    | tr '\n' ' ' \
+    | sed 's/[[:space:]][[:space:]]*/ /g; s/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
+wait_for_runner_startup() {
+  local runner_pid="$1"
+  local checks="${CODEX_LOOP_STARTUP_CHECKS:-10}"
+  local interval="${CODEX_LOOP_STARTUP_INTERVAL_SEC:-0.2}"
+  local i=0
+
+  while [ "${i}" -lt "${checks}" ]; do
+    sleep "${interval}"
+    if ! is_pid_alive "${runner_pid}"; then
+      local status exit_reason
+      status="$(json_get_file "${RUN_JSON}" "status" "")"
+      exit_reason="$(json_get_file "${RUN_JSON}" "exit_reason" "")"
+      if [ -s "${CYCLES_JSONL}" ] || [ -f "${CURRENT_JOB_JSON}" ]; then
+        return 0
+      fi
+      case "${status}" in
+        completed|stopped)
+          return 0
+          ;;
+        failed)
+          case "${exit_reason}" in
+            task_blocked|pivot_required)
+              return 0
+              ;;
+          esac
+          ;;
+      esac
+      return 1
+    fi
+    i=$((i + 1))
+  done
+
+  return 0
 }
 
 delay_for_pacing() {
@@ -958,36 +1016,184 @@ stop_requested() {
 
 companion_status_json() {
   local job_id="$1"
-  if [ "${CODEX_LOOP_TASK_DRIVER:-local}" = "companion" ]; then
-    bash "${COMPANION}" status "${job_id}" --json
-    return 0
+  if [ "$(codex_loop_task_driver)" = "companion" ]; then
+    bash "$(codex_loop_companion_path)" status "${job_id}" --json
+    return $?
   fi
   local_task_status_json "${job_id}"
 }
 
 companion_result_json() {
   local job_id="$1"
-  if [ "${CODEX_LOOP_TASK_DRIVER:-local}" = "companion" ]; then
-    bash "${COMPANION}" result "${job_id}" --json
-    return 0
+  if [ "$(codex_loop_task_driver)" = "companion" ]; then
+    bash "$(codex_loop_companion_path)" result "${job_id}" --json
+    return $?
   fi
   local_task_result_json "${job_id}"
 }
 
 companion_cancel_json() {
   local job_id="$1"
-  if [ "${CODEX_LOOP_TASK_DRIVER:-local}" = "companion" ]; then
-    bash "${COMPANION}" cancel "${job_id}" --json
-    return 0
+  if [ "$(codex_loop_task_driver)" = "companion" ]; then
+    bash "$(codex_loop_companion_path)" cancel "${job_id}" --json
+    return $?
   fi
   local_task_cancel_json "${job_id}"
 }
 
+codex_loop_task_driver() {
+  local driver="${CODEX_LOOP_TASK_DRIVER:-}"
+  if [ -z "${driver}" ] && [ -f "${RUN_JSON}" ]; then
+    driver="$(json_get_file "${RUN_JSON}" "task_driver" "" 2>/dev/null || true)"
+  fi
+  if [ -z "${driver}" ] && [ -f "${CURRENT_JOB_JSON}" ]; then
+    driver="$(json_get_file "${CURRENT_JOB_JSON}" "task_driver" "" 2>/dev/null || true)"
+  fi
+  printf '%s\n' "${driver:-local}"
+}
+
+codex_loop_companion_path() {
+  local companion_path="${CODEX_LOOP_COMPANION:-}"
+  if [ -z "${companion_path}" ] && [ -f "${RUN_JSON}" ]; then
+    companion_path="$(json_get_file "${RUN_JSON}" "companion_path" "" 2>/dev/null || true)"
+  fi
+  if [ -z "${companion_path}" ] && [ -f "${CURRENT_JOB_JSON}" ]; then
+    companion_path="$(json_get_file "${CURRENT_JOB_JSON}" "companion_path" "" 2>/dev/null || true)"
+  fi
+  printf '%s\n' "${companion_path:-${COMPANION}}"
+}
+
+job_status_is_terminal() {
+  case "${1:-}" in
+    completed|done|failed|cancelled|missing) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+current_job_id_from_state() {
+  local job_id=""
+  job_id="$(json_get_file "${RUN_JSON}" "current_job_id" "" 2>/dev/null || true)"
+  if [ -z "${job_id}" ] && [ -f "${CURRENT_JOB_JSON}" ]; then
+    job_id="$(json_get_file "${CURRENT_JOB_JSON}" "job_id" "" 2>/dev/null || true)"
+  fi
+  if [ -z "${job_id}" ] && [ -f "${CURRENT_JOB_JSON}" ]; then
+    job_id="$(json_get_file "${CURRENT_JOB_JSON}" "id" "" 2>/dev/null || true)"
+  fi
+  printf '%s\n' "${job_id}"
+}
+
+current_job_status_from_state() {
+  local job_status=""
+  job_status="$(json_get_file "${RUN_JSON}" "current_job_status" "" 2>/dev/null || true)"
+  if [ -z "${job_status}" ] && [ -f "${CURRENT_JOB_JSON}" ]; then
+    job_status="$(json_get_file "${CURRENT_JOB_JSON}" "status" "" 2>/dev/null || true)"
+  fi
+  printf '%s\n' "${job_status}"
+}
+
+current_job_live_status() {
+  local job_id="$1"
+  local status_json status_payload status
+  status_json="$(companion_status_json "${job_id}" 2>> "${RUNNER_LOG}" || true)"
+  status_payload="${status_json}"
+  [ -n "${status_payload}" ] || status_payload='{}'
+  status="$(python_json "${status_payload}" <<'PY'
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1]) if sys.argv[1] else {}
+except json.JSONDecodeError:
+    payload = {}
+job = payload.get("job", {}) or {}
+print(job.get("status", ""))
+PY
+)"
+  if [ -n "${status}" ]; then
+    printf '%s\n' "${status}"
+    return 0
+  fi
+  current_job_status_from_state
+}
+
+cancel_current_job_if_active() {
+  local reason="${1:-runner_exit}"
+  local job_id job_status cancel_status
+  job_id="$(current_job_id_from_state)"
+  [ -n "${job_id}" ] || return 0
+
+  job_status="$(current_job_live_status "${job_id}")"
+  if job_status_is_terminal "${job_status}"; then
+    return 0
+  fi
+
+  log_line "cancelling active job ${job_id}: ${reason}"
+  cancel_status=0
+  companion_cancel_json "${job_id}" >> "${RUNNER_LOG}" 2>&1 || cancel_status=$?
+  local recorded_status recorded_phase
+  if [ "${cancel_status}" -eq 0 ]; then
+    recorded_status="cancelled"
+    recorded_phase="cancelled"
+  else
+    recorded_status="cancel_failed"
+    recorded_phase="cancel_failed"
+  fi
+  run_state_patch "$(cat <<EOF
+{
+  "updated_at": $(json_escape "$(timestamp_utc)"),
+  "current_job_status": $(json_escape "${recorded_status}"),
+  "current_job_phase": $(json_escape "${recorded_phase}"),
+  "last_cancelled_job_id": $(json_escape "${job_id}"),
+  "last_cancel_reason": $(json_escape "${reason}"),
+  "last_cancel_exit_status": ${cancel_status}
+}
+EOF
+)"
+  return "${cancel_status}"
+}
+
+runner_exit_trap() {
+  local exit_code="${1:-0}"
+  local scope="${2:-runner}"
+  set +e
+
+  if [ "${exit_code}" -eq 0 ] || [ "${RUNNER_FINALIZED:-0}" = "1" ]; then
+    if [ "${scope}" = "run" ]; then
+      release_lock
+    fi
+    return 0
+  fi
+
+  local job_id error_message
+  job_id="$(current_job_id_from_state)"
+  if [ -n "${job_id}" ]; then
+    cancel_current_job_if_active "runner_exit:${scope}:exit_${exit_code}" || true
+    error_message="codex-loop ${scope} exited unexpectedly (exit=${exit_code}) while job ${job_id} was active; cancellation requested"
+    run_state_patch "$(cat <<EOF
+{
+  "status": "failed",
+  "exit_reason": "runner_exit",
+  "pid": null,
+  "finished_at": $(json_escape "$(timestamp_utc)"),
+  "updated_at": $(json_escape "$(timestamp_utc)"),
+  "error_message": $(json_escape "${error_message}")
+}
+EOF
+)"
+    log_line "${error_message}"
+  fi
+
+  if [ "${scope}" = "run" ]; then
+    release_lock
+  fi
+  return 0
+}
+
 start_background_task() {
   local prompt_file="$1"
-  if [ "${CODEX_LOOP_TASK_DRIVER:-local}" = "companion" ]; then
-    bash "${COMPANION}" task --background --write --json --prompt-file "${prompt_file}"
-    return 0
+  if [ "$(codex_loop_task_driver)" = "companion" ]; then
+    bash "$(codex_loop_companion_path)" task --background --write --json --prompt-file "${prompt_file}"
+    return $?
   fi
   local_task_start_json "${prompt_file}"
 }
@@ -1881,6 +2087,11 @@ finalize_run() {
   local error_message="${3:-}"
   local runner_pid=""
   runner_pid="$(json_get_file "${RUN_JSON}" "pid" "")"
+  local cancel_status=0
+  RUNNER_FINALIZED=1
+  if [ "${status}" != "completed" ]; then
+    cancel_current_job_if_active "finalize:${exit_reason}" || cancel_status=$?
+  fi
   run_state_patch "$(cat <<EOF
 {
   "status": $(json_escape "${status}"),
@@ -1892,7 +2103,9 @@ finalize_run() {
 }
 EOF
 )"
-  cleanup_current_job
+  if [ "${cancel_status}" -eq 0 ]; then
+    cleanup_current_job
+  fi
   release_lock
   log_line "run finished: status=${status} reason=${exit_reason}"
   [ -n "${runner_pid}" ] && true
@@ -2003,6 +2216,8 @@ PY
   "task_id": $(json_escape "${task_id}"),
   "job_id": $(json_escape "${job_id}"),
   "log_file": $(json_escape "${job_log}"),
+  "task_driver": $(json_escape "$(codex_loop_task_driver)"),
+  "companion_path": $(json_escape "$(codex_loop_companion_path)"),
   "contract_path": $(json_escape "${contract_path}"),
   "reviewer_profile": $(json_escape "${reviewer_profile}"),
   "started_at": $(json_escape "${cycle_started_at}")
@@ -2272,6 +2487,8 @@ PY
   "task_ids": $(json_escape "${task_ids}"),
   "job_id": $(json_escape "${job_id}"),
   "log_file": $(json_escape "${job_log}"),
+  "task_driver": $(json_escape "$(codex_loop_task_driver)"),
+  "companion_path": $(json_escape "$(codex_loop_companion_path)"),
   "started_at": $(json_escape "${cycle_started_at}")
 }
 EOF
@@ -2419,8 +2636,17 @@ cmd_start() {
   local pacing="worker"
   local executor="breezing"
   local max_workers="max"
+  local plan_name=""
   while [ $# -gt 0 ]; do
     case "$1" in
+      --plan)
+        if [ $# -lt 2 ] || [[ "${2:-}" == --* ]]; then
+          echo "--plan requires a plan name" >&2
+          exit 2
+        fi
+        plan_name="${2:-}"
+        shift 2
+        ;;
       --max-cycles)
         max_cycles="${2:-}"
         shift 2
@@ -2474,9 +2700,12 @@ cmd_start() {
   fi
 
   local plans_file
+  if [ -n "${plan_name}" ]; then
+    export HARNESS_PLAN_NAME="${plan_name}"
+  fi
   plans_file="$(plans_file_path)"
   [ -f "${plans_file}" ] || {
-    echo "Plans.md not found under ${PROJECT_ROOT}" >&2
+    echo "Plans.md not found under ${PROJECT_ROOT}${plan_name:+ for plan ${plan_name}}" >&2
     exit 1
   }
 
@@ -2510,6 +2739,8 @@ cmd_start() {
   "max_cycles": ${max_cycles},
   "pacing": "$(printf '%s' "${pacing}")",
   "executor": "$(printf '%s' "${executor}")",
+  "task_driver": "$(printf '%s' "${CODEX_LOOP_TASK_DRIVER:-local}")",
+  "companion_path": "$(printf '%s' "${CODEX_LOOP_COMPANION:-${COMPANION}}")",
   "max_workers": "$(printf '%s' "${max_workers}")",
   "delay_seconds": ${delay_seconds},
   "cycle_count": 0,
@@ -2523,6 +2754,7 @@ cmd_start() {
   "started_at": "$(timestamp_utc)",
   "updated_at": "$(timestamp_utc)",
   "project_root": "$(printf '%s' "${PROJECT_ROOT}")",
+  "plan_name": "$(printf '%s' "${plan_name:-default}")",
   "plans_file": "$(printf '%s' "${plans_file}")"
 }
 EOF
@@ -2541,6 +2773,29 @@ EOF
 }
 EOF
 )"
+  if ! wait_for_runner_startup "${runner_pid}"; then
+    local log_tail
+    log_tail="$(runner_log_tail_one_line 30)"
+    local error_message="loop runner exited during startup"
+    if [ -n "${log_tail}" ]; then
+      error_message="${error_message}; runner log tail: ${log_tail}"
+    fi
+    run_state_patch "$(cat <<EOF
+{
+  "pid": null,
+  "status": "startup_failed",
+  "exit_reason": "startup_failed",
+  "finished_at": $(json_escape "$(timestamp_utc)"),
+  "updated_at": $(json_escape "$(timestamp_utc)"),
+  "error_message": $(json_escape "${error_message}"),
+  "startup_log_tail": $(json_escape "${log_tail}")
+}
+EOF
+)"
+    release_lock
+    printf 'Failed to start codex-loop %s: %s\n' "${run_id}" "${error_message}" >&2
+    exit 1
+  fi
   printf 'Started codex-loop %s in background (pid=%s)\n' "${run_id}" "${runner_pid}"
 }
 
@@ -2568,12 +2823,12 @@ cmd_status() {
   fi
 
   local payload
-  payload="$(python_json "${RUN_JSON}" "${CURRENT_JOB_JSON}" "${PROJECT_ROOT}" <<'PY'
+  payload="$(python_json "${RUN_JSON}" "${CURRENT_JOB_JSON}" "${PROJECT_ROOT}" "${RUNNER_LOG}" <<'PY'
 import json
 import os
 import sys
 
-run_file, current_job_file, project_root = sys.argv[1:4]
+run_file, current_job_file, project_root, runner_log_file = sys.argv[1:5]
 
 def pid_alive(pid):
     if pid in (None, "", 0):
@@ -2606,10 +2861,38 @@ if os.path.exists(current_job_file):
         payload["warning"] = f"current_job_corrupt: {exc}"
 
 active_statuses = {"starting", "running", "waiting", "stopping"}
+terminal_job_statuses = {"completed", "done", "failed", "cancelled", "missing"}
 if run.get("status") in active_statuses and not pid_alive(run.get("pid")):
     run = dict(run)
-    run["status"] = "state_stale"
-    run["error_message"] = run.get("error_message") or "loop runner pid is not alive"
+    current_job = payload.get("current_job") or {}
+    job_id = run.get("current_job_id") or current_job.get("job_id") or current_job.get("id")
+    job_status = run.get("current_job_status") or current_job.get("status") or ""
+    active_job_lost = bool(job_id) and job_status not in terminal_job_statuses
+    if active_job_lost:
+        run["status"] = "runner_lost_job_running"
+        run["exit_reason"] = "runner_lost_active_job"
+        run["current_job_id"] = job_id
+        if job_status:
+            run["current_job_status"] = job_status
+    else:
+        run["status"] = "state_stale"
+    if not run.get("error_message"):
+        tail = ""
+        try:
+            with open(runner_log_file, "r", encoding="utf-8", errors="replace") as fh:
+                lines = fh.readlines()[-20:]
+            tail = " ".join(line.strip() for line in lines if line.strip())
+        except Exception:
+            tail = ""
+        if active_job_lost:
+            run["error_message"] = (
+                f"loop runner pid is not alive while active job {job_id} is still recorded"
+                + (f"; runner log tail: {tail}" if tail else "")
+            )
+        else:
+            run["error_message"] = "loop runner pid is not alive" + (f"; runner log tail: {tail}" if tail else "")
+        if tail:
+            run["startup_log_tail"] = tail
     payload["run"] = run
 
 print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -2685,9 +2968,42 @@ EOF
 )"
 
   local job_id
-  job_id="$(json_get_file "${RUN_JSON}" "current_job_id" "")"
+  local cancel_status=0
+  job_id="$(current_job_id_from_state)"
   if [ -n "${job_id}" ]; then
-    companion_cancel_json "${job_id}" >> "${RUNNER_LOG}" 2>&1 || true
+    cancel_current_job_if_active "user_stop" || cancel_status=$?
+  fi
+
+  local runner_pid=""
+  runner_pid="$(json_get_file "${RUN_JSON}" "pid" "")"
+  if ! is_pid_alive "${runner_pid}"; then
+    if [ "${cancel_status}" -ne 0 ]; then
+      run_state_patch "$(cat <<EOF
+{
+  "status": "runner_lost_job_running",
+  "exit_reason": "stop_cancel_failed",
+  "pid": null,
+  "updated_at": $(json_escape "$(timestamp_utc)"),
+  "error_message": $(json_escape "stop could not cancel active job ${job_id}; see runner log")
+}
+EOF
+)"
+      release_lock
+      echo "stop requested but active job cancellation failed" >&2
+      return 1
+    fi
+    run_state_patch "$(cat <<EOF
+{
+  "status": "stopped",
+  "exit_reason": "user_stop",
+  "pid": null,
+  "finished_at": $(json_escape "$(timestamp_utc)"),
+  "updated_at": $(json_escape "$(timestamp_utc)")
+}
+EOF
+)"
+    cleanup_current_job
+    release_lock
   fi
 
   echo "stop requested"
@@ -2757,7 +3073,7 @@ cmd_run() {
     echo "codex-loop is already running (pid=${existing_pid:-unknown})" >&2
     exit 1
   fi
-  trap 'release_lock' EXIT
+  trap 'runner_exit_trap "$?" "run"' EXIT
 
   local selection max_cycles pacing delay_seconds plans_file executor max_workers
   selection="$(json_get_file "${RUN_JSON}" "selection" "all")"
@@ -2810,13 +3126,13 @@ EOF
     local cycle_status=0
     if [ "${executor}" = "breezing" ]; then
       if [[ "${batch_ids}" == *,* ]]; then
-        bash "${SELF_SCRIPT}" run-cycle --run-id "${run_id}" --task-id "${batch_ids}" --cycle "${next_cycle}" --executor breezing --max-workers "${max_workers}" || cycle_status=$?
+        HARNESS_PLAN_FILE="${plans_file}" bash "${SELF_SCRIPT}" run-cycle --run-id "${run_id}" --task-id "${batch_ids}" --cycle "${next_cycle}" --executor breezing --max-workers "${max_workers}" || cycle_status=$?
       else
         log_line "cycle ${next_cycle} starting executor=breezing batch=${batch_ids} max_workers=${max_workers}"
-        bash "${SELF_SCRIPT}" run-cycle --run-id "${run_id}" --task-id "${batch_ids}" --cycle "${next_cycle}" --executor task || cycle_status=$?
+        HARNESS_PLAN_FILE="${plans_file}" bash "${SELF_SCRIPT}" run-cycle --run-id "${run_id}" --task-id "${batch_ids}" --cycle "${next_cycle}" --executor task || cycle_status=$?
       fi
     else
-      bash "${SELF_SCRIPT}" run-cycle --run-id "${run_id}" --task-id "${task_id}" --cycle "${next_cycle}" --executor task || cycle_status=$?
+      HARNESS_PLAN_FILE="${plans_file}" bash "${SELF_SCRIPT}" run-cycle --run-id "${run_id}" --task-id "${task_id}" --cycle "${next_cycle}" --executor task || cycle_status=$?
     fi
     if [ "${cycle_status}" -ne 0 ]; then
       case "${cycle_status}" in
@@ -2908,6 +3224,7 @@ cmd_run_cycle() {
     echo "run-cycle requires --run-id, --task-id, and --cycle" >&2
     exit 2
   }
+  trap 'runner_exit_trap "$?" "run-cycle"' EXIT
   case "${executor}" in
     breezing) perform_breezing_cycle "${run_id}" "${task_id}" "${cycle_number}" "${max_workers}" ;;
     task) perform_cycle "${run_id}" "${task_id}" "${cycle_number}" ;;

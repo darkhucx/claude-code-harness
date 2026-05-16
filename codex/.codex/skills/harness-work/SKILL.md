@@ -1,9 +1,9 @@
 ---
 name: harness-work
-description: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
+description: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行（Codex 原生版）。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
 description-en: "HAR: Execute Plans.md tasks from single task to full parallel team run. Trigger: implement, execute, do everything, breezing, team run, parallel. Do NOT load for: planning, review, release, setup."
 description-ja: "HAR:Plans.md タスクを1件から全並列チーム実行まで担当。実装して、実行して、全部やって、breezing、チーム実行、parallel で起動。プランニング・レビュー・リリース・セットアップには使わない。"
-description-zh: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
+description-zh: "HAR：负责从单任务到全并行团队执行的 Plans.md 任务执行（Codex 原生版）。触发：实现、执行、全部搞定、breezing、团队执行、parallel。不用于：计划、评审、发布、初始化。"
 kind: workflow
 purpose: "Execute Plans.md tasks end to end through Codex-native tools"
 trigger: "implement, execute, do everything, breezing, team run, parallel"
@@ -13,7 +13,7 @@ pair: harness-review
 owner: harness-core
 since: "2026-05-05"
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "spawn_agent", "send_input", "wait_agent", "close_agent"]
-argument-hint: "[all] [task-number|range] [--codex] [--gemini] [--ollama] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode]"
+argument-hint: "[all] [task-number|range] [--codex] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode] [--tdd-bypass]"
 effort: high
 ---
 
@@ -37,9 +37,8 @@ Harness の統合実行スキル。
 | `harness-work 3` | solo | タスク3だけ即実行 |
 | `harness-work --parallel 5` | parallel | 5ワーカーで並列実行（強制） |
 | `harness-work --codex` | codex | Codex CLI に委託（明示時のみ） |
-| `harness-work --gemini` | gemini | Gemini CLI に委託（明示時のみ） |
-| `harness-work --ollama` | ollama | Ollama ローカルモデルに委託（明示時のみ） |
 | `harness-work --breezing` | breezing | チーム実行を強制 |
+| `harness-work 3 --plan roadmap` | solo | named Plans の `roadmap` からタスク3を実行 |
 
 ## Execution Mode Auto Selection（フラグなし時の自動判定）
 
@@ -58,11 +57,8 @@ Harness の統合実行スキル。
    - `--parallel N` → Parallel モード（タスク数に関係なく）
    - `--breezing` → Breezing モード（タスク数に関係なく）
    - `--codex` → Codex モード（タスク数に関係なく）
-   - `--gemini` → Gemini モード（タスク数に関係なく）
-   - `--ollama` → Ollama モード（タスク数に関係なく）
 2. **`--codex` は明示時のみ発動**。Codex CLI が未インストールの環境があるため、自動選択しない
 3. `--codex` は他モードと組み合わせ可能: `--codex --breezing` → Codex + Breezing
-4. `--ollama` は他モードと組み合わせ不可。`--codex` / `--gemini` とも排他
 
 ## オプション
 
@@ -73,12 +69,12 @@ Harness の統合実行スキル。
 | `--parallel N` | 並列ワーカー数 | auto |
 | `--sequential` | 直列実行強制 | - |
 | `--codex` | Codex CLI で実装委託（明示時のみ、自動選択しない） | false |
-| `--gemini` | Gemini CLI で実装委託（明示時のみ、自動選択しない） | false |
-| `--ollama` | Ollama ローカルモデルで実装委託（明示時のみ、自動選択しない） | false |
+| `--plan NAME` | `plans/manifest.json` の named plan を使う | active/default |
 | `--no-commit` | 自動コミット抑制 | false |
 | `--resume <id\|latest>` | 前回セッション再開 | - |
 | `--breezing` | Lead/Worker/Reviewer のチーム実行 | false |
 | `--no-tdd` | TDD フェーズスキップ | false |
+| `--tdd-bypass` | 緊急時だけ TDD 強制を bypass。`HARNESS_TDD_BYPASS_REASON` または明示理由を audit に残す | false |
 | `--no-simplify` | Auto-Refinement スキップ | false |
 | `--auto-mode` | Auto Mode rollout を明示。親セッションの permission mode が互換な場合のみ採用を検討 | false |
 
@@ -93,14 +89,17 @@ Harness の統合実行スキル。
 | companion review、Reviewer fallback、AI Residuals、修正ループ | `references/review-loop.md` |
 | 完了報告の生成 | `references/completion-report.md` |
 | テスト/CI 失敗時の再チケット化 | `references/failure-reticketing.md` |
+| 仕様正本チェックの基準 | `docs/plans/spec-ssot.md` |
 
 ### 重要停止条件
 
 - `Plans.md` が旧フォーマットで DoD / Depends / Status を読めない時は停止する。
+- 仕様が実装判断に影響するのに project spec SSOT が見つからない時は、先に仕様正本を作成/更新してから実装する。
 - sprint-contract が required なのに ready でない時は実装に進まない。
 - critical / major review finding が残っている時は完了にしない。
 - テストを弱める、skip する、期待値を実装に合わせて緩める形では解決しない。
 - helper script は host project の `scripts/` ではなく `${HARNESS_PLUGIN_ROOT}/scripts/` から呼ぶ。
+- 複数 Plans.md がある場合は、1 run の中で plan を切り替えない。必要なら `--plan NAME` を明示して新しい run を開始する。
 
 > **Token Optimization (v2.1.69+)**: git 操作を伴わない軽量タスクでは
 > plugin settings の `includeGitInstructions: false` を有効にして
@@ -173,10 +172,18 @@ fi
    - `git grep` / `Glob` で **影響範囲**（変更が及ぶファイル/モジュール）を推論表示
    - 推論に自信がある場合: そのまま実装に進む（フロー遅延なし）
    - 推論に自信がない場合: ユーザーに 1 問だけ確認（「この理解で合っていますか？」）
+1.6. **仕様正本 preflight**:
+   - 既存の project spec SSOT を探す（例: `docs/spec/00-project-spec.md`, `docs/ARCHITECTURE.md`, `docs/HANDOFF.md`, `docs/oem/PROJECT_COMPASS.md`, `docs/specs/`）
+   - task が product behavior / API / data model / permission / billing / integration / tenant boundary を変える場合、spec がなければ `docs/spec/00-project-spec.md` を作る
+   - spec が古い、または task と矛盾する場合は、実装前に spec を更新する
+   - typo / format / dependency bump / docs-only / 動作変更なし refactor は skip 理由を残して続行する
+   - Worker / Reviewer へ渡す context には `spec_path` または `spec_skip_reason` を含める
 2. タスクを `cc:WIP` に更新
 3. **TDD フェーズ**（`[skip:tdd]` なし & テストFW存在時）:
    a. テストファイルを先に作成（Red）
    b. 失敗を確認
+   c. `bash "${HARNESS_PLUGIN_ROOT}/scripts/log-tdd-red.sh"` で `.claude/state/tdd-red-log/<task-id>.jsonl` に FAIL 証跡を残す。script が利用できない環境では、literal な failing test output を worker-report の `self_review` evidence に添付する
+   d. `--tdd-bypass` を使う場合は、`HARNESS_TDD_BYPASS=1` と `HARNESS_TDD_BYPASS_REASON="<理由>"` を明示し、TDD を省略した理由を sprint-contract / worker-report に残す
 4. `node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js" <task-id>` で `sprint-contract.json` を生成
 5. Reviewer 観点の追記を `bash "${HARNESS_PLUGIN_ROOT}/scripts/enrich-sprint-contract.sh"` で加え、`bash "${HARNESS_PLUGIN_ROOT}/scripts/ensure-sprint-contract-ready.sh"` で approved を確認
 6. **Advisor consult（必要時のみ）**:
@@ -232,43 +239,6 @@ companion は App Server Protocol 経由で Codex と通信し、
 Job 管理・thread resume・構造化出力を提供する。
 結果を検証し、品質基準を満たさない場合は自力で修正。
 
-### Gemini モード（`--gemini` 明示時のみ）
-
-Gemini CLI にタスクを委託する。`scripts/gemini-companion.sh` 経由で呼び出す。
-
-```bash
-# タスク委託
-bash "${HARNESS_PLUGIN_ROOT}/scripts/gemini-companion.sh" task --write "タスク内容"
-
-# 前回スレッドの続行
-bash "${HARNESS_PLUGIN_ROOT}/scripts/gemini-companion.sh" task --resume-last --write "続きをやって"
-```
-
-- `--codex` / `--ollama` と同時指定不可
-
-### Ollama モード（`--ollama` 明示時のみ）
-
-ローカルの Ollama インスタンス（OpenAI 互換 API）にタスクを委託する。
-`scripts/ollama-companion.sh` 経由で呼び出す。
-
-```bash
-# タスク委託
-bash scripts/ollama-companion.sh task --write "タスク内容"
-
-# モデル指定（既定: qwen2.5-coder:7b）
-bash scripts/ollama-companion.sh task --write --model llama3.1:8b "タスク内容"
-
-# 複雑度スコアで自動ルーティング判定
-bash scripts/ollama-companion.sh score-task "タスク内容"
-```
-
-**推奨ユースケース**: 小タスク（i18n フィールド追加、設定変更、コメント補完）。
-`score-task` でスコア ≤ 3 と判定されたタスクが目安。
-
-- `--codex` / `--gemini` と同時指定不可
-- `--breezing` との組み合わせは不可（ローカルモデルはバックグラウンドジョブ非対応）
-- Ollama 未起動時は即座にエラーで停止（フォールバックなし）
-
 ### Breezing モード（4 件以上で自動選択 / `--breezing` で強制）
 
 Lead / Worker / Advisor / Reviewer の役割分離でチーム実行する。
@@ -294,9 +264,10 @@ Lead (this agent)
 **Phase A: Pre-delegate（準備）**:
 1. Plans.md を読み込み、対象タスクを特定
 2. 依存グラフを解析し、実行順序を決定（Depends カラム）
-3. 各タスクの effort スコアリング（ultrathink 注入判定）
-4. `node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js"` で `sprint-contract.json` を生成
-5. `bash "${HARNESS_PLUGIN_ROOT}/scripts/enrich-sprint-contract.sh"` で Reviewer 観点を加え、`bash "${HARNESS_PLUGIN_ROOT}/scripts/ensure-sprint-contract-ready.sh"` で未承認なら停止
+3. 各タスクの仕様正本 preflight を行い、必要なら `docs/spec/00-project-spec.md` または既存 spec を実装前に更新
+4. 各タスクの effort スコアリング（ultrathink 注入判定）
+5. `node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js"` で `sprint-contract.json` を生成
+6. `bash "${HARNESS_PLUGIN_ROOT}/scripts/enrich-sprint-contract.sh"` で Reviewer 観点を加え、`bash "${HARNESS_PLUGIN_ROOT}/scripts/ensure-sprint-contract-ready.sh"` で未承認なら停止
 
 **Phase B: Delegate（Worker spawn → 必要時 Advisor → レビュー → cherry-pick）**:
 
@@ -317,7 +288,7 @@ for task in execution_order:
     Plans.md: task.status = "cc:WIP"  # 着手時に更新（未着手タスクは cc:TODO のまま）
 
     worker_id = spawn_agent({
-        message: "タスク: {task.内容}\nDoD: {task.DoD}\ncontract_path: {contract_path}\nmode: breezing\n\n作業は分離 worktree で行い、完了後に git commit してください。\n完了時は {commit, worktreePath, branch, files_changed, summary} を返してください。",
+        message: "タスク: {task.内容}\nDoD: {task.DoD}\ncontract_path: {contract_path}\nspec_path: {spec_path}\nspec_skip_reason: {spec_skip_reason}\nmode: breezing\n\n作業は分離 worktree で行い、完了後に git commit してください。\n完了時は {commit, worktreePath, branch, files_changed, summary} を返してください。",
         fork_context: true
     })
     worker_result = wait_agent({ targets: [worker_id] })

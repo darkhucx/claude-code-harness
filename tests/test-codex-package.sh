@@ -416,6 +416,58 @@ else
   log_fail "codex README update-path guidance is incomplete"
 fi
 
+log_test "Codex 0.130.0 stable provider and workflow policy is documented"
+codex_0130_policy_ok=true
+for required_policy_term in \
+  'Codex `0.130.0` stable (`rust-v0.130.0`, published `2026-05-08T23:09:55Z`)' \
+  'AWS console-login credentials from `aws login` profiles' \
+  'Harness does not write AWS credentials' \
+  'model_provider = "amazon-bedrock"' \
+  'codex remote-control' \
+  'page large threads' \
+  'selected environments' \
+  'live app-server threads pick up config changes without restart' \
+  'Turn diffs stay accurate across `apply_patch`, including partial failures' \
+  'plugin details now show bundled hooks' \
+  'link metadata and discoverability controls' \
+  'Configurable OpenTelemetry trace metadata' \
+  'Built-in MCPs' \
+  '`CODEX_HOME` environments TOML provider' \
+  'extra skills list roots'; do
+  if ! rg -q --fixed-strings "$required_policy_term" "codex/README.md" "docs/codex-provider-setup-policy.md" "docs/codex-plugin-workflows-policy.md" "skills/harness-setup/SKILL.md"; then
+    echo "  missing Codex 0.130.0 policy term: $required_policy_term"
+    codex_0130_policy_ok=false
+  fi
+done
+for required_config_term in \
+  'policy aligned through 0.130.0 stable' \
+  'bundled hooks opt-in' \
+  'does not enable remote-control defaults' \
+  'AWS console-login credentials from `aws login` profiles' \
+  'never writes AWS credential material' \
+  'configurable OpenTelemetry trace metadata' \
+  'built-in MCPs as first-class runtime servers' \
+  'CODEX_HOME environments' \
+  'one primary environment'; do
+  if ! rg -q --fixed-strings "$required_config_term" "codex/.codex/config.toml"; then
+    echo "  missing Codex 0.130.0 config term: $required_config_term"
+    codex_0130_policy_ok=false
+  fi
+done
+if rg -q '^[[:space:]]*remote[-_]control[[:space:]=]' "codex/.codex/config.toml"; then
+  echo "  config.toml appears to set a remote-control default"
+  codex_0130_policy_ok=false
+fi
+if rg -q '^[[:space:]]*hooks[[:space:]=]' "codex/.codex/config.toml"; then
+  echo "  config.toml appears to set inline hooks"
+  codex_0130_policy_ok=false
+fi
+if $codex_0130_policy_ok; then
+  log_pass "Codex 0.130.0 provider and workflow policy is documented"
+else
+  log_fail "Codex 0.130.0 provider/workflow policy checks failed"
+fi
+
 log_test "codex README documents MCP verbose diagnostics and .mcp.json loading"
 readme_mcp_ok=true
 if ! rg -q --fixed-strings 'Codex `0.123.0` keeps the normal `/mcp` view fast' "codex/README.md"; then
@@ -701,7 +753,14 @@ if [ -d "opencode/skills" ] && [ -d "codex/.codex/skills" ]; then
         test-*|x-*|breezing|cc-update-review|claude-codex-upstream-update|harness-release-internal|maintenance|zz-review-empty|zz-review-escape|_archived|harness-ui) continue ;;
       esac
       if [ -f "$d/SKILL.md" ]; then
-        sed -n 's/^name:[[:space:]]*//p' "$d/SKILL.md" | head -n 1 | tr -d '\"'
+        local skill_name
+        skill_name="$(sed -n 's/^name:[[:space:]]*//p' "$d/SKILL.md" | head -n 1 | tr -d '\"')"
+        # OpenCode skill names must be lowercase kebab-case. Normalize known
+        # cross-client casing differences before comparing mirror coverage.
+        if [ "$skill_name" = "notebookLM" ]; then
+          skill_name="notebooklm"
+        fi
+        printf '%s\n' "$skill_name"
       fi
     done | sort
   }

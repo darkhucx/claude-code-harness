@@ -56,6 +56,10 @@ type sprintContractBody struct {
 	RuntimeValidation []sprintValidation `json:"runtime_validation"`
 	BrowserValidation []sprintValidation `json:"browser_validation"`
 	RiskFlags         []string           `json:"risk_flags"`
+	TDDRequired       bool               `json:"tdd_required"`
+	TestFramework     string             `json:"test_framework"`
+	TestTodoList      []string           `json:"test_todo_list"`
+	SkipTDDReason     *string            `json:"skip_tdd_reason"`
 }
 
 type sprintContractAdvisor struct {
@@ -108,16 +112,21 @@ type uiRubricTarget struct {
 }
 
 var (
-	uiRubricRe          = regexp.MustCompile(`(?i)\bui-rubric\b|\bdesign\b|styling|aesthetic|visual polish|design-heavy|design quality|originality|craft|functionality|デザイン|見た目品質|意匠|質感|デザイン品質`)
-	uiWithDesignRe      = regexp.MustCompile(`(?i)\bui\b`)
-	layoutWithDesignRe  = regexp.MustCompile(`(?i)\blayout\b`)
-	uiDesignHintRe      = regexp.MustCompile(`(?i)design|styling|aesthetic|layout|visual|polish|デザイン|見た目`)
-	browserProfileRe    = regexp.MustCompile(`(?i)browser|chrome|playwright|\bui\b|layout|responsive|スクリーンショット|画面|web アプリ|webアプリ`)
-	runtimeProfileRe    = regexp.MustCompile(`(?i)runtime|typecheck|lint|test|api|probe|integration|e2e|検証コマンド`)
-	maxIterationsRe     = regexp.MustCompile(`(?is)<!--\s*max_iterations:\s*(\d+)\s*-->`)
-	exploratoryModeRe   = regexp.MustCompile(`(?i)(browser_mode\s*:\s*exploratory|\bexploratory\b|探索モード|探索的)`)
-	scriptedModeRe      = regexp.MustCompile(`(?i)(browser_mode\s*:\s*scripted|\bscripted\b|定型|決め打ち)`)
-	explicitRouteRe     = regexp.MustCompile(`(?i)(?:browser_)?route\s*:\s*(playwright|agent-browser|chrome-devtools)`)
+	uiRubricRe         = regexp.MustCompile(`(?i)\bui-rubric\b|\bdesign\b|styling|aesthetic|visual polish|design-heavy|design quality|originality|craft|functionality|デザイン|見た目品質|意匠|質感|デザイン品質`)
+	uiWithDesignRe     = regexp.MustCompile(`(?i)\bui\b`)
+	layoutWithDesignRe = regexp.MustCompile(`(?i)\blayout\b`)
+	uiDesignHintRe     = regexp.MustCompile(`(?i)design|styling|aesthetic|layout|visual|polish|デザイン|見た目`)
+	browserProfileRe   = regexp.MustCompile(`(?i)browser|chrome|playwright|\bui\b|layout|responsive|スクリーンショット|画面|web アプリ|webアプリ`)
+	runtimeProfileRe   = regexp.MustCompile(`(?i)runtime|typecheck|lint|test|api|probe|integration|e2e|検証コマンド`)
+	maxIterationsRe    = regexp.MustCompile(`(?is)<!--\s*max_iterations:\s*(\d+)\s*-->`)
+	exploratoryModeRe  = regexp.MustCompile(`(?i)(browser_mode\s*:\s*exploratory|\bexploratory\b|探索モード|探索的)`)
+	scriptedModeRe     = regexp.MustCompile(`(?i)(browser_mode\s*:\s*scripted|\bscripted\b|定型|決め打ち)`)
+	explicitRouteRe    = regexp.MustCompile(`(?i)(?:browser_)?route\s*:\s*(playwright|agent-browser|chrome-devtools)`)
+	// Sprint contracts recognize literal Plans.md tags: [tdd:required] and [tdd:skip:<reason>].
+	tddRequiredTagRe    = regexp.MustCompile(`(?i)\[tdd:required\]`)
+	tddSkipTagRe        = regexp.MustCompile(`(?i)\[tdd:skip:([^\]]+)\]`)
+	pathInBackticksRe   = regexp.MustCompile("`([^`]+)`")
+	sprintPathTokenRe   = regexp.MustCompile(`(?:^|[\s(,])((?:\.claude|src|app|cmd|go|lib|pkg|internal|docs|scripts|tests|agents|skills|hooks|templates|frontend|mcp-server|harness-ui)(?:/[A-Za-z0-9._@+-]+)+)`)
 	securitySensitiveRe = regexp.MustCompile(`(?i)security|auth|permission|secret|guardrail|セキュリティ|権限`)
 	stateMigrationRe    = regexp.MustCompile(`(?i)migration|schema|state|resume|session|artifact|マイグレーション|セッション|再開`)
 	uxRegressionRe      = regexp.MustCompile(`(?i)browser|ui|layout|responsive|playwright|chrome|画面|レイアウト`)
@@ -189,6 +198,7 @@ func (g *SprintContractGenerator) Generate(taskID string) (*sprintContractDoc, e
 	runtimeValidation := pickRuntimeCommands(projectRoot)
 	riskFlags := detectSprintRiskFlags(row)
 	advisor := buildSprintAdvisor(row, riskFlags)
+	tdd := detectSprintTDD(projectRoot, row)
 
 	var browserMode *string
 	var route *string
@@ -257,6 +267,10 @@ func (g *SprintContractGenerator) Generate(taskID string) (*sprintContractDoc, e
 			RuntimeValidation: runtimeValidation,
 			BrowserValidation: browserValidation,
 			RiskFlags:         riskFlags,
+			TDDRequired:       tdd.Required,
+			TestFramework:     tdd.TestFramework,
+			TestTodoList:      tdd.TestTodoList,
+			SkipTDDReason:     tdd.SkipReason,
 		},
 		Advisor: advisor,
 		Review: sprintContractReview{
@@ -533,6 +547,265 @@ func detectSprintRiskFlags(task *sprintTaskRow) []string {
 		unique = append(unique, flag)
 	}
 	return unique
+}
+
+type sprintTDDContract struct {
+	Required      bool
+	TestFramework string
+	TestTodoList  []string
+	SkipReason    *string
+}
+
+func detectSprintTDD(root string, task *sprintTaskRow) sprintTDDContract {
+	framework := detectSprintTestFramework(root)
+	contract := sprintTDDContract{
+		TestFramework: framework,
+		TestTodoList:  []string{},
+		SkipReason:    nil,
+	}
+	text := fmt.Sprintf("%s\n%s", task.Title, task.DoD)
+
+	if tddRequiredTagRe.MatchString(text) {
+		contract.Required = true
+		contract.TestTodoList = defaultSprintTDDTodoList()
+		return contract
+	}
+
+	if match := tddSkipTagRe.FindStringSubmatch(text); len(match) >= 2 {
+		reason := strings.TrimSpace(match[1])
+		if reason == "" {
+			reason = "unspecified"
+		}
+		contract.SkipReason = &reason
+		return contract
+	}
+
+	paths := extractSprintMentionedPaths(text)
+	if len(paths) == 0 {
+		return contract
+	}
+
+	if sprintPathsAreDocsOnly(paths) {
+		reason := "docs-only"
+		contract.SkipReason = &reason
+		return contract
+	}
+
+	if sprintPathsContainSource(paths) {
+		if framework == "none" {
+			reason := "no-test-framework-detected"
+			contract.SkipReason = &reason
+			return contract
+		}
+		contract.Required = true
+		contract.TestTodoList = defaultSprintTDDTodoList()
+		return contract
+	}
+
+	if framework == "none" {
+		reason := "no-test-framework-detected"
+		contract.SkipReason = &reason
+	}
+	return contract
+}
+
+func defaultSprintTDDTodoList() []string {
+	return []string{"normal", "boundary", "error"}
+}
+
+func extractSprintMentionedPaths(text string) []string {
+	seen := map[string]struct{}{}
+	paths := []string{}
+	add := func(raw string) {
+		path := cleanSprintMentionedPath(raw)
+		if path == "" || strings.ContainsAny(path, " \t\r\n") {
+			return
+		}
+		if !looksLikeSprintPath(path) {
+			return
+		}
+		if _, ok := seen[path]; ok {
+			return
+		}
+		seen[path] = struct{}{}
+		paths = append(paths, path)
+	}
+
+	for _, match := range pathInBackticksRe.FindAllStringSubmatch(text, -1) {
+		if len(match) >= 2 {
+			add(match[1])
+		}
+	}
+	for _, match := range sprintPathTokenRe.FindAllStringSubmatch(text, -1) {
+		if len(match) >= 2 {
+			add(match[1])
+		}
+	}
+
+	return paths
+}
+
+func cleanSprintMentionedPath(path string) string {
+	trimmed := strings.TrimSpace(path)
+	trimmed = strings.Trim(trimmed, "`'\".,;:()[]{}<>")
+	return strings.TrimPrefix(trimmed, "./")
+}
+
+func looksLikeSprintPath(path string) bool {
+	prefixes := []string{
+		".claude/",
+		"src/",
+		"app/",
+		"cmd/",
+		"go/",
+		"lib/",
+		"pkg/",
+		"internal/",
+		"docs/",
+		"scripts/",
+		"tests/",
+		"agents/",
+		"skills/",
+		"hooks/",
+		"templates/",
+		"frontend/",
+		"mcp-server/",
+		"harness-ui/",
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func sprintPathsAreDocsOnly(paths []string) bool {
+	if len(paths) == 0 {
+		return false
+	}
+	for _, path := range paths {
+		if strings.HasPrefix(path, "docs/") || strings.HasPrefix(path, "scripts/") || strings.HasPrefix(path, ".claude/") {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func sprintPathsContainSource(paths []string) bool {
+	for _, path := range paths {
+		if isSprintTestPath(path) {
+			continue
+		}
+		if strings.HasPrefix(path, "src/") ||
+			strings.HasPrefix(path, "app/") ||
+			strings.HasPrefix(path, "cmd/") ||
+			strings.HasPrefix(path, "go/") ||
+			strings.HasPrefix(path, "lib/") ||
+			strings.HasPrefix(path, "pkg/") ||
+			strings.HasPrefix(path, "internal/") {
+			return true
+		}
+	}
+	return false
+}
+
+func isSprintTestPath(path string) bool {
+	return strings.HasPrefix(path, "tests/") ||
+		strings.Contains(path, "/tests/") ||
+		strings.Contains(path, "/__tests__/") ||
+		strings.HasSuffix(path, "_test.go") ||
+		strings.Contains(path, ".test.") ||
+		strings.Contains(path, ".spec.")
+}
+
+func detectSprintTestFramework(root string) string {
+	if hasAnyFile(root, "vitest.config.ts", "vitest.config.js", "vitest.config.mjs") {
+		return "vitest"
+	}
+	if hasAnyFile(root, "jest.config.js", "jest.config.ts", "jest.config.mjs") {
+		return "jest"
+	}
+	if framework := detectSprintPackageJSONFramework(filepath.Join(root, "package.json")); framework != "" {
+		return framework
+	}
+	if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
+		return "go"
+	}
+	if sprintPytestDetected(root) {
+		return "pytest"
+	}
+	if _, err := os.Stat(filepath.Join(root, "Cargo.toml")); err == nil {
+		return "cargo"
+	}
+	return "none"
+}
+
+func detectSprintPackageJSONFramework(packageJSONPath string) string {
+	data, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		return ""
+	}
+	var pkg struct {
+		Scripts         map[string]string `json:"scripts"`
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return ""
+	}
+	if testScript := strings.TrimSpace(pkg.Scripts["test"]); testScript != "" && testScript != `echo "Error: no test specified" && exit 1` {
+		lower := strings.ToLower(testScript)
+		switch {
+		case strings.Contains(lower, "vitest"):
+			return "vitest"
+		case strings.Contains(lower, "jest"):
+			return "jest"
+		default:
+			return "npm"
+		}
+	}
+	if _, ok := pkg.DevDependencies["vitest"]; ok {
+		return "vitest"
+	}
+	if _, ok := pkg.Dependencies["vitest"]; ok {
+		return "vitest"
+	}
+	if _, ok := pkg.DevDependencies["jest"]; ok {
+		return "jest"
+	}
+	if _, ok := pkg.Dependencies["jest"]; ok {
+		return "jest"
+	}
+	return ""
+}
+
+func sprintPytestDetected(root string) bool {
+	if _, err := os.Stat(filepath.Join(root, "pytest.ini")); err == nil {
+		return true
+	}
+	if setupCfg, err := os.ReadFile(filepath.Join(root, "setup.cfg")); err == nil {
+		text := string(setupCfg)
+		if strings.Contains(text, "[tool:pytest]") || strings.Contains(text, "[pytest]") {
+			return true
+		}
+	}
+	if pyproject, err := os.ReadFile(filepath.Join(root, "pyproject.toml")); err == nil {
+		if strings.Contains(strings.ToLower(string(pyproject)), "pytest") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAnyFile(root string, names ...string) bool {
+	for _, name := range names {
+		if _, err := os.Stat(filepath.Join(root, name)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func buildSprintAdvisor(task *sprintTaskRow, riskFlags []string) sprintContractAdvisor {

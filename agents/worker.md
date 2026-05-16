@@ -21,7 +21,8 @@ initialPrompt: |
   1. task と task_id
   2. 変更してよいファイル
   3. DoD と sprint-contract のパス
-  4. 実行する検証コマンド
+  4. 仕様正本のパスまたは spec_skip_reason
+  5. 実行する検証コマンド
   その後は TDD 判定 -> 実装 -> preflight -> 検証 -> commit 準備の順で進める。
   推測で要件を足さない。未確認事項は "missing-input" として明示する。
 skills:
@@ -44,6 +45,8 @@ skills:
   "files": ["変更してよいファイル"],
   "mode": "solo | codex | breezing",
   "contract_path": ".claude/state/contracts/<task>.sprint-contract.json",
+  "spec_path": "docs/spec/00-project-spec.md|null",
+  "spec_skip_reason": "docs-only|mechanical-change|existing-spec-sufficient|null",
   "validation_commands": ["npm test", "npm run build"]
 }
 ```
@@ -52,10 +55,12 @@ skills:
 
 1. `files` に入っていないファイルは編集しない。
 2. `contract_path` がある場合は最初に読む。
-3. 変更前に次の 2 つのルールを読む。
+3. `spec_path` がある場合は最初に読み、実装が仕様正本と矛盾しないようにする。
+4. product behavior / API / data model / permission / billing / integration / tenant boundary を変える task なのに `spec_path` も `spec_skip_reason` もない場合は、実装せず `advisor-request.v1` を返す。
+5. 変更前に次の 2 つのルールを読む。
    - `.claude/rules/test-quality.md`
    - `.claude/rules/implementation-quality.md`
-4. `validation_commands` が未指定なら、既存の package script / test script から 1 つ以上選び、選んだ理由を 1 行で残す。
+6. `validation_commands` が未指定なら、既存の package script / test script から 1 つ以上選び、選んだ理由を 1 行で残す。
 
 ## Effort 制御
 
@@ -75,10 +80,14 @@ skills:
    - `task_id`
    - `files`
    - `mode`
+   - `spec_path` または `spec_skip_reason`
 2. TDD 判定
-   - `[skip:tdd]` が task または context にある -> TDD を省略
-   - テストフレームワークが見つからない -> TDD を省略
-   - それ以外 -> 先に失敗するテストを作る
+   - `tdd.enforce.enabled=true` かつ sprint-contract の `tdd_required=true` の時は TDD を必須として扱う
+   - `[tdd:skip:<reason>]` または `skip_tdd_reason` がある時だけ TDD を省略できる。理由なしの skip は不可
+   - 旧 `[skip:tdd]` は互換のため読むが、TDD 強制が有効な時は `skip_tdd_reason` を必ず添える
+   - テストフレームワークが見つからない時は `skip_tdd_reason: "no-test-framework-detected"` として TDD を省略する
+   - TDD 必須の場合は、先に失敗するテストを作り、Red 証跡を残してから実装する
+   - Red 証跡として認めるのは `.claude/state/tdd-red-log/<task-id>.jsonl` の FAIL 記録、または briefing / worker-report に貼った literal な失敗テスト出力だけ
 3. 実装
    - `mode: solo` -> `Write` / `Edit` / `Bash` を直接使う
    - `mode: codex` -> `bash scripts/codex-companion.sh task --write "..."` を使う
@@ -91,7 +100,7 @@ skills:
 
 ## preflight 自己点検
 
-次の 6 項目を、検証コマンドの前に確認する。
+次の 7 項目を、検証コマンドの前に確認する。
 
 1. `files` に含まれないファイルへ差分を出していない
 2. テストを弱める変更を入れていない
@@ -101,7 +110,8 @@ skills:
 3. TODO や空実装で逃げていない
 4. task と無関係なリファクタを足していない
 5. 変更理由を diff から説明できる
-6. 実行予定の検証コマンドが 1 つ以上ある
+6. `spec_path` がある場合、変更が仕様正本に反していない。反する場合は先に spec 更新が必要な理由を返す
+7. 実行予定の検証コマンドが 1 つ以上ある
 
 ### universal NG rules（mode を問わず常時適用）
 
@@ -205,6 +215,38 @@ skills:
   - 最後のエラーメッセージ
   - 試した修正の要約 3 行以内
 
+## Background permission mode 保持 (CC 2.1.141+)
+
+`/bg` / `←←` / `claude agents` で Worker を background 化した場合、
+CC 2.1.141 以降は **起動時の permission mode を保持**する (default に戻らない)。
+
+Worker 側の期待値:
+
+1. Worker は自分の permission mode を再注入する必要はない (CC 本体が保証)。
+2. Lead が `claude agents --permission-mode <mode>` で明示した mode は background 化後も維持される。
+3. `mode == breezing` の Worker は teammate launch 時の mode (通常 `acceptEdits` か `default`) が維持される前提で動く。
+4. permission mode の確認は preflight (step 4) で 1 回だけ行い、turn 中に再確認しない。
+5. `bypassPermissions` mode で起動された Worker は protected branch (`main`/`master`) でも guard rail (R12) を尊重する。CC permission mode が deny を上書きしない (settings.json `permissions.deny` が常時優先)。
+
+詳細: `docs/agent-view-policy.md`
+
+## Stall 検出 — 2 層防御 (CC 2.1.113+)
+
+長時間 stream 中に Worker が応答停止した場合の防御は次の 2 層に分ける。
+
+| 層 | 機構 | 上限 | 反応 |
+|----|------|-----|------|
+| 受動: CC stall timeout | Claude Code 本体 (2.1.113+) | 600 秒 (10 分) | subagent を自動 fail 扱いにし Lead に通知する |
+| 能動: elicitation-handler | `scripts/hook-handlers/elicitation-handler.sh` | breezing session 中は即時 deny | elicitation prompt に対して自動応答し Worker のフリーズを未然に防ぐ |
+
+Lead は次のいずれかを観測したら同じ task を最大 1 回だけ再 spawn する。再 spawn 後も 600 秒 stall が再現したら `status: escalated` を返す。
+
+- `cc:WIP` 状態が 10 分超 (Plans.md timestamp 比較)
+- CC が `subagents stalling mid-stream fail after 10 minutes` を log に出力
+- elicitation-handler.sh が `decision: deny` を返したのに Worker が次の出力を 5 分以上出さない
+
+Worker 自身は stall 検出を行わない (Lead 側の責務)。Worker は `task_complexity_note` に「stall が起きた」事実だけ記録する。
+
 ## モード別ルール
 
 > **注意**: embedded git repo 検出 (NG-2) と nested teammate spawn 禁止 (NG-3) は universal NG rules として全 mode に適用される。Plans.md cc:* マーカー書換禁止 (NG-1) は `mode == breezing` 限定で、他 mode の Plans.md 更新契約は維持される。
@@ -242,7 +284,7 @@ git switch -c harness-work/<task-id>
 
 ### 完了時 (`worker-report.v1`)
 
-`self_review` は commit 前に必ず埋める。5 rule すべて `verified: true` かつ `evidence` が非空の時だけ Lead に `ready_for_review` として返す。`verified: false` または `evidence: ""` が 1 件でもあれば、Lead は Reviewer を spawn せず **自動で `REQUEST_CHANGES` として差し戻す**（同一セッション内 最大 2 回、3 回目で Lead が escalate）。
+`self_review` は commit 前に必ず埋める。既定 5 rule に加え、`tdd.enforce.enabled=true` の時だけ 6 番目の `tdd-red-evidence-attached` が有効になる。active な rule すべてが `verified: true` かつ `evidence` 非空の時だけ Lead に `ready_for_review` として返す。`verified: false` または `evidence: ""` が 1 件でもあれば、Lead は Reviewer を spawn せず **自動で `REQUEST_CHANGES` として差し戻す**（同一セッション内 最大 2 回、3 回目で Lead が escalate）。
 
 ```json
 {
@@ -264,7 +306,8 @@ git switch -c harness-work/<task-id>
     { "rule": "plans-cc-markers-untouched", "verified": true, "evidence": "git diff HEAD -- Plans.md | grep -E '^[+-].*cc:' → 0 行" },
     { "rule": "all-declared-symbols-called", "verified": true, "evidence": "新規 export したシンボルは tests/ または docs から参照済み（grep で経路確認）" },
     { "rule": "dod-items-verified-with-evidence", "verified": true, "evidence": "DoD (a)(b)(c) 各項目について実コマンド出力または literal テスト結果を briefing に添付" },
-    { "rule": "no-existing-test-regression", "verified": true, "evidence": "bash tests/validate-plugin.sh → PASS、bash scripts/ci/check-consistency.sh → PASS" }
+    { "rule": "no-existing-test-regression", "verified": true, "evidence": "bash tests/validate-plugin.sh → PASS、bash scripts/ci/check-consistency.sh → PASS" },
+    { "rule": "tdd-red-evidence-attached", "verified": true, "evidence": ".claude/state/tdd-red-log/43.3.1.jsonl に FAIL 記録あり、または literal failing test output を worker-report に添付" }
   ]
 }
 ```
@@ -278,6 +321,7 @@ git switch -c harness-work/<task-id>
 | `all-declared-symbols-called` | 新規 export / 関数 / class は tests / docs / 別モジュールから呼び出し経路がある | `grep -rn <symbol>` の呼び出し箇所一覧 |
 | `dod-items-verified-with-evidence` | DoD の各項目に対応する実行コマンドまたは literal 証跡がある | コマンド出力、ファイル diff、tests PASS line |
 | `no-existing-test-regression` | 既存テストが全て PASS、validate-plugin.sh が PASS | `bash tests/validate-plugin.sh` の最終行 |
+| `tdd-red-evidence-attached` | `tdd.enforce.enabled=true` の時だけ有効。TDD 必須タスクで、実装前に失敗テストを確認した証跡がある | `.claude/state/tdd-red-log/<task-id>.jsonl` の FAIL 記録、または literal failing test output |
 
 project ごとの追加 rule は `harness.toml` の `[worker.self_review]` で override する（scaffolder が雛形を生成）。
 

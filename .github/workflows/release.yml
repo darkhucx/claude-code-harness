@@ -6,18 +6,29 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
+
+# Never cancel an in-flight release. Tag-triggered runs are the source of
+# release artifacts; cancellation could leave a half-published release.
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           fetch-depth: 0
+          filter: blob:none
 
       - name: Check if release already exists
         id: check
@@ -57,10 +68,8 @@ jobs:
           # Write to file to preserve newlines
           echo "$BODY" > /tmp/release-body.md
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
+      - name: Setup Go (harness composite)
+        uses: ./.github/actions/setup-go-harness
 
       - name: Build Go binaries
         run: |
@@ -72,7 +81,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
 
           gh release create "$TAG" \
             --title "$TAG" \

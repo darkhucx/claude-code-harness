@@ -13,7 +13,7 @@ pair: harness-review
 owner: harness-core
 since: "2026-05-05"
 allowed-tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task", "Monitor"]
-argument-hint: "[all] [task-number|range] [--codex] [--gemini] [--ollama] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode]"
+argument-hint: "[all] [task-number|range] [--codex] [--gemini] [--ollama] [--plan NAME] [--parallel N] [--no-commit] [--resume id] [--breezing] [--auto-mode] [--tdd-bypass]"
 user-invocable: true
 effort: high
 ---
@@ -41,6 +41,7 @@ Harness の統合実行スキル。
 | `/harness-work --gemini` | gemini | Gemini CLI に委託（明示時のみ） |
 | `/harness-work --ollama` | ollama | Ollama ローカルモデルに委託（明示時のみ） |
 | `/harness-work --breezing` | breezing | チーム実行を強制 |
+| `/harness-work 3 --plan roadmap` | solo | named Plans の `roadmap` からタスク3を実行 |
 
 ## Execution Mode Auto Selection（フラグなし時の自動判定）
 
@@ -76,10 +77,12 @@ Harness の統合実行スキル。
 | `--codex` | Codex CLI で実装委託（明示時のみ、自動選択しない） | false |
 | `--gemini` | Gemini CLI で実装委託（明示時のみ、自動選択しない） | false |
 | `--ollama` | Ollama ローカルモデルで実装委託（明示時のみ、自動選択しない） | false |
+| `--plan NAME` | `plans/manifest.json` の named plan を使う | active/default |
 | `--no-commit` | 自動コミット抑制 | false |
 | `--resume <id\|latest>` | 前回セッション再開。長く空いた後は `/recap` 併用を推奨 | - |
 | `--breezing` | Lead/Worker/Reviewer のチーム実行 | false |
 | `--no-tdd` | TDD フェーズスキップ | false |
+| `--tdd-bypass` | 緊急時だけ TDD 強制を bypass。`HARNESS_TDD_BYPASS_REASON` または明示理由を audit に残す | false |
 | `--no-simplify` | Auto-Refinement スキップ | false |
 | `--auto-mode` | Harness 側の Auto Mode rollout を明示。CC 2.1.111 で不要になった `--enable-auto-mode` とは別物 | false |
 
@@ -94,14 +97,17 @@ Harness の統合実行スキル。
 | Codex review、Reviewer fallback、AI Residuals、修正ループ | `references/review-loop.md` |
 | Solo / Breezing 完了報告の生成 | `references/completion-report.md` |
 | テスト/CI 失敗時の再チケット化 | `references/failure-reticketing.md` |
+| 仕様正本チェックの基準 | `docs/plans/spec-ssot.md` |
 
 ### 重要停止条件
 
 - `Plans.md` が旧フォーマットで DoD / Depends / Status を読めない時は停止する。
+- 仕様が実装判断に影響するのに project spec SSOT が見つからない時は、先に仕様正本を作成/更新してから実装する。
 - sprint-contract が required なのに ready でない時は実装に進まない。
 - critical / major review finding が残っている時は完了にしない。
 - テストを弱める、skip する、期待値を実装に合わせて緩める形では解決しない。
 - helper script は host project の `scripts/` ではなく `${HARNESS_PLUGIN_ROOT}/scripts/` から呼ぶ。
+- 複数 Plans.md がある場合は、1 run の中で plan を切り替えない。必要なら `--plan NAME` を明示して新しい run を開始する。
 
 > **Token Optimization (v2.1.69+)**: git 操作を伴わない軽量タスクでは
 > plugin settings の `includeGitInstructions: false` を有効にして
@@ -179,10 +185,18 @@ fi
    - `git grep` / `Glob` で **影響範囲**（変更が及ぶファイル/モジュール）を推論表示
    - 推論に自信がある場合: そのまま実装に進む（フロー遅延なし）
    - 推論に自信がない場合: ユーザーに 1 問だけ確認（「この理解で合っていますか？」）
+1.6. **仕様正本 preflight**:
+   - 既存の project spec SSOT を探す（例: `docs/spec/00-project-spec.md`, `docs/ARCHITECTURE.md`, `docs/HANDOFF.md`, `docs/oem/PROJECT_COMPASS.md`, `docs/specs/`）
+   - task が product behavior / API / data model / permission / billing / integration / tenant boundary を変える場合、spec がなければ `docs/spec/00-project-spec.md` を作る
+   - spec が古い、または task と矛盾する場合は、実装前に spec を更新する
+   - typo / format / dependency bump / docs-only / 動作変更なし refactor は skip 理由を残して続行する
+   - Worker / Reviewer へ渡す context には `spec_path` または `spec_skip_reason` を含める
 2. タスクを `cc:WIP` に更新
 3. **TDD フェーズ**（`[skip:tdd]` なし & テストFW存在時）:
    a. テストファイルを先に作成（Red）
    b. 失敗を確認
+   c. `bash "${HARNESS_PLUGIN_ROOT}/scripts/log-tdd-red.sh"` で `.claude/state/tdd-red-log/<task-id>.jsonl` に FAIL 証跡を残す。script が利用できない環境では、literal な failing test output を worker-report の `self_review` evidence に添付する
+   d. `--tdd-bypass` を使う場合は、`HARNESS_TDD_BYPASS=1` と `HARNESS_TDD_BYPASS_REASON="<理由>"` を明示し、TDD を省略した理由を sprint-contract / worker-report に残す
 4. `node "${HARNESS_PLUGIN_ROOT}/scripts/generate-sprint-contract.js" <task-id>` で `sprint-contract.json` を生成
 5. Reviewer 観点の追記を `bash "${HARNESS_PLUGIN_ROOT}/scripts/enrich-sprint-contract.sh"` で加え、`bash "${HARNESS_PLUGIN_ROOT}/scripts/ensure-sprint-contract-ready.sh"` で approved を確認
 6. **Advisor consult（必要時のみ）**:
@@ -353,7 +367,8 @@ for task in execution_order:
         )
 
     # B-3.5. self_review ゲート（Reviewer spawn 前、Lead が機械的に検証）
-    # Worker の worker-report.v1 に self_review[] が 5 件あり、全 verified=true かつ evidence 非空であること
+    # Worker の worker-report.v1 に active self_review rules がそろい、全 verified=true かつ evidence 非空であること
+    # tdd.enforce.enabled=true かつ tdd_required=true の時は `tdd-red-evidence-attached` も active rule として必須
     # verified=false または evidence=="" が 1 件でもあれば Reviewer を spawn せず Worker に差し戻す
     self_review_failures = 0
     MAX_SELF_REVIEW_RETRIES = 2  # 3 回目 (retries=2) で Lead が escalate
@@ -372,7 +387,7 @@ for task in execution_order:
         # Worker に差し戻し (Reviewer spawn せず)
         SendMessage(
             to=worker_id,
-            message=f"self_review に未確認 rule があります: {[u['rule'] for u in unverified]}。各 rule の evidence を実コマンド出力または literal テスト結果で埋め、verified=true にしてから amend してください"
+            message=f"self_review に未確認 rule があります: {[u['rule'] for u in unverified]}。各 rule の evidence を実コマンド出力または literal テスト結果で埋め、TDD 必須時は .claude/state/tdd-red-log/<task-id>.jsonl または literal failing test output を添えて verified=true にしてから amend してください"
         )
         worker_result = wait_for_response(worker_id)
 

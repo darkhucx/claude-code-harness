@@ -18,6 +18,7 @@ Checks:
   - env parity / healthcheck
   - runtime residual scan
   - sprint-contract schema
+  - opencode / skill mirror drift
   - CI status when available
 EOF
   exit 0
@@ -376,6 +377,69 @@ NODE
   rm -f "$output_file"
 }
 
+check_release_mirror_drift() {
+  local has_mirror_surface=0
+  [ -d opencode ] && has_mirror_surface=1
+  [ -d skills-codex ] && has_mirror_surface=1
+  [ -d codex/.codex/skills ] && has_mirror_surface=1
+
+  if [ "$has_mirror_surface" -eq 0 ]; then
+    warn "release mirror drift skipped"
+    return
+  fi
+
+  local missing=0
+  for helper in scripts/build-opencode.js scripts/validate-opencode.js scripts/sync-skill-mirrors.sh; do
+    if [ ! -f "$helper" ]; then
+      fail "release mirror helper: $helper"
+      missing=1
+    fi
+  done
+  if [ "$missing" -ne 0 ]; then
+    return
+  fi
+
+  local output_file
+  output_file="$(mktemp)"
+
+  if node scripts/build-opencode.js >"$output_file" 2>&1; then
+    pass "release mirror build"
+  else
+    fail "release mirror build"
+    sed 's/^/  /' "$output_file"
+    rm -f "$output_file"
+    return
+  fi
+
+  if node scripts/validate-opencode.js >"$output_file" 2>&1; then
+    pass "opencode mirror validation"
+  else
+    fail "opencode mirror validation"
+    sed 's/^/  /' "$output_file"
+  fi
+
+  if bash scripts/sync-skill-mirrors.sh --check >"$output_file" 2>&1; then
+    pass "skill mirror sync check"
+  else
+    fail "skill mirror sync check"
+    sed 's/^/  /' "$output_file"
+  fi
+
+  rm -f "$output_file"
+
+  local diff_paths=()
+  [ -d opencode ] && diff_paths+=("opencode/")
+  [ -d skills-codex ] && diff_paths+=("skills-codex/")
+  [ -d codex/.codex/skills ] && diff_paths+=("codex/.codex/skills/")
+
+  if git diff --quiet -- "${diff_paths[@]}"; then
+    pass "release mirror drift"
+  else
+    fail "release mirror drift"
+    git diff --stat -- "${diff_paths[@]}" | sed 's/^/  /'
+  fi
+}
+
 check_ci_status() {
   if [ -n "${HARNESS_RELEASE_CI_STATUS_CMD:-}" ]; then
     run_optional_command "CI status" "$HARNESS_RELEASE_CI_STATUS_CMD"
@@ -432,6 +496,7 @@ check_release_version_sync
 check_env_and_healthcheck
 check_runtime_residuals
 check_sprint_contract_schema
+check_release_mirror_drift
 check_ci_status
 
 echo "----------------------------------------"

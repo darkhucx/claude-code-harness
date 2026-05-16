@@ -42,6 +42,15 @@ Lead
 ここでいう「グループ」は、同じ commit にまとめても競合しない書き込み集合を指す。
 同じファイルを 2 worker に書かせる分割は禁止。
 
+## Worker stall 時の re-spawn (CC 2.1.113+)
+
+Lead は次の 2 条件のいずれかを満たしたら、同じ task を **最大 1 回** 再 spawn する。
+
+- Plans.md `cc:WIP` 状態が **10 分** (600 秒) 超で更新されない
+- CC 本体が stall log を出力 (`subagents stalling mid-stream fail after 10 minutes`)
+
+再 spawn 後も同じ条件が再現したら escalation する。Worker 並列数の決め方には影響せず、stall 検出は Lead 側のみ責務。詳細は [`agents/worker.md`](../agents/worker.md) の「Stall 検出 — 2 層防御」を参照。
+
 ## 実行フロー
 
 1. Lead が task を分解し、`sprint-contract` を作る
@@ -58,9 +67,14 @@ Lead
 |------|-------------|
 | `review-result.v1.verdict == APPROVE` | cherry-pick して main に commit |
 | `review-result.v1.verdict == REQUEST_CHANGES` | 同じ Worker に修正依頼を返す |
+| 修正に仕様・Plans・API・権限・課金・移行の意思決定が必要 | AskUserQuestion で user decision を取る。推測で修正しない |
 
 修正ループは最大 3 回。
 4 回目には入らず、Lead が task をエスカレーションする。
+
+`harness-review` は必要時に TeamAgent Debate を使う。
+これは Reviewer の判定権限を増やすものではなく、Spec Agent / Plans Agent / Regression Agent / Skeptic Agent の read-only 視点を衝突させるための材料集めである。
+最終 verdict は引き続き Reviewer が `review-result.v1` と明確な合格ラインに基づいて出す。
 
 ## SendMessage の固定パターン
 
@@ -125,6 +139,26 @@ Claude Code の plugin agent では agent-local `permissionMode` が無視され
 
 `--auto-mode` は rollout 用の opt-in。
 既定値にはしない。
+
+### background permission mode 保持 (CC 2.1.141+)
+
+`/bg` / `←←` / `claude agents` で teammate を background 化した場合、
+CC 2.1.141 以降は起動時の permission mode が保持される (default に戻らない)。
+
+- Lead は `claude agents --permission-mode <mode>` で明示した mode が
+  background 化後も維持される前提で運用する。
+- breezing teammate の permission mode 再注入は不要。
+  従来 `--auto-mode` で扱っていた特殊起動も CC 本体が mode 保持を保証する。
+- 例外: `bypassPermissions` で起動した teammate も `.claude-plugin/settings.json` の
+  `permissions.deny` / `autoMode.hard_deny` を override しない (多層防御は維持)。
+
+### `claude agents` 経由の dispatched session (CC 2.1.142+)
+
+Lead が `claude agents --add-dir / --settings / --mcp-config / --plugin-dir /
+--permission-mode / --model / --effort / --dangerously-skip-permissions` で
+dispatched background session を起動する場合は、`docs/agent-view-policy.md` の
+flag 利用条件を参照する。teammate spawn workflow (breezing skill / Agent tool) との
+分離が前提。
 
 ## チームサイズ
 

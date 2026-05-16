@@ -1,0 +1,62 @@
+{
+  "schema": "plan-brief-context.v1",
+  "user_request": "発注者向けに進行管理 HTML を出してほしい",
+  "my_understanding": "Plans.md の cc:WIP / cc:TODO / cc:完了 件数を 1 枚 HTML で可視化する skill が欲しいと理解しました。\n\n非エンジニアの発注者が「今どこまで進んでいるか」を 30 秒で把握できる体験を狙います。",
+  "options": [
+    {
+      "name": "Option A: Plans.md を直接 grep して HTML 化",
+      "summary": "shell + jq でシンプルに集計。実装は速いが拡張性は限定的",
+      "pros": ["実装が速い", "依存が少ない"],
+      "cons": ["alert ロジックを後付けすると複雑化"]
+    },
+    {
+      "name": "Option B: harness-progress skill を新設し schema 経由",
+      "summary": "schema progress-snapshot.v1 で構造化、render-html.sh と連携",
+      "pros": ["拡張しやすい", "alert / drift detect の追加が容易"],
+      "cons": ["初期実装が Option A より重い"]
+    }
+  ],
+  "risks": [
+    {
+      "kind": "scope-creep",
+      "severity": "warn",
+      "description": "Plans.md にない file 編集を始めるリスク",
+      "mitigation": "PostToolUse hook で検出し alert 表示"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "description": "fixture Plans.md (各 status 含む) で snapshot HTML が正しい % で表示される",
+      "verifiable_by": "tests/test-harness-progress.sh"
+    }
+  ],
+  "confidence": 78,
+  "confidence_evidence": [
+    "過去 10 件の類似 skill 案件中 8 件が cc:完了 (80%)",
+    "DoD の数値要件含有率 90% (5 個の DoD 中 4.5 個が機械検証可能)",
+    "関連 D / P 件数 6 件 (D22, D37, P5, P8, P12, P29)"
+  ],
+  "related_decisions": [
+    {
+      "id": "D22",
+      "title": "3層メモリアーキテクチャ",
+      "relevance": "Layer 1 自動メモリと共存する設計の参考"
+    }
+  ],
+  "similar_past_plans": [
+    {
+      "archive_path": ".claude/memory/archive/Plans-2026-04-21-phase34-46.md",
+      "phase": "Phase 41 - Issue auto-trigger pipeline",
+      "outcome": "cc:完了",
+      "relevance": "skill skeleton + scripts + tests + e2e の 4 段構成が同じ"
+    }
+  ],
+  "project": "claude-code-harness",
+  "generated_at": "2026-05-09T08:55:00Z",
+  "confidence_evidence_items": [
+    { "text": "過去 10 件の類似 skill 案件中 8 件が cc:完了 (80%)" },
+    { "text": "DoD の数値要件含有率 90% (5 個の DoD 中 4.5 個が機械検証可能)" },
+    { "text": "関連 D / P 件数 6 件 (D22, D37, P5, P8, P12, P29)" }
+  ]
+}

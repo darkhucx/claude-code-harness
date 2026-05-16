@@ -1,9 +1,9 @@
 ---
 name: breezing
-description: "团队执行模式 — harness-work 的团队协作别名。breezing、团队执行、全部搞定 等触发。"
+description: "团队执行模式（Codex 原生版）— harness-work 的团队协作别名，使用 Codex 原生 subagent API。breezing、团队执行、全部搞定 等触发。"
 description-en: "Team execution mode (Codex native) — backward-compatible alias for harness-work with team orchestration using Codex native subagent API."
 description-ja: "チーム実行モード（Codex ネイティブ版）— harness-work のチーム協調エイリアス。breezing, チーム実行, 全部やって でトリガー。"
-description-zh: "团队执行模式 — harness-work 的团队协作别名。breezing、团队执行、全部搞定 等触发。"
+description-zh: "团队执行模式（Codex 原生版）— harness-work 的团队协作别名，使用 Codex 原生 subagent API。breezing、团队执行、全部搞定 等触发。"
 kind: workflow
 purpose: "Wrap harness-work with Codex-native team execution orchestration"
 trigger: "breezing, team execution, do everything"

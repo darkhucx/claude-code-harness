@@ -7,8 +7,16 @@ Agent/Task tool wording.
 
 1. Read `Plans.md`.
 2. Stop on old table formats that lack `Task`, `DoD`, `Depends`, or `Status`.
-3. Resolve helper scripts from the Harness plugin root.
-4. Keep implementation and review separate.
+3. Check whether a project spec SSOT exists when product behavior can drift.
+   Prefer existing project-level docs, then `docs/spec/00-project-spec.md`.
+4. If the task changes product behavior, API, data model, permissions, billing,
+   integrations, or tenant boundaries and no stable spec exists, create or
+   update the spec before implementation.
+5. Skip spec creation only for mechanical work such as typo, formatting,
+   dependency bump, docs-only, or behavior-preserving refactor tasks. Record
+   the skip reason in the task context or sprint contract.
+6. Resolve helper scripts from the Harness plugin root.
+7. Keep implementation and review separate.
 
 ## Solo
 

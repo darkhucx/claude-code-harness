@@ -1,9 +1,9 @@
 ---
 name: harness-loop
-description: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
+description: "HAR：Codex 原生的长时间循环执行器。后台 runner 默认通过 Breezing 每周期执行一个 ready batch，可用 status/stop 监控。触发：长时间、loop、循环、autonomous、background、Codex。不用于：单次实现、常规评审、发布。"
 description-en: "HAR: Codex-native long-running loop runner. Uses a real background runner that executes one ready batch per cycle through Breezing by default, with status/stop controls. Trigger: long-running, loop, autonomous, background, Codex. Do NOT load for: one-shot implementation, normal review, release."
 description-ja: "HAR: Codex 専用の長時間ループ実行。実際のバックグラウンドランナーが ready batch を Breezing で進め、status / stop で監視できる。長時間、loop、ループ、autonomous、background、Codex で起動。"
-description-zh: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
+description-zh: "HAR：Codex 原生的长时间循环执行器。后台 runner 默认通过 Breezing 每周期执行一个 ready batch，可用 status/stop 监控。触发：长时间、loop、循环、autonomous、background、Codex。不用于：单次实现、常规评审、发布。"
 kind: workflow
 purpose: "Run long-lived Codex ready-batch execution loops"
 trigger: "long-running, loop, autonomous, background, Codex"
@@ -47,6 +47,7 @@ Codex 版の `harness-loop` は、説明だけの擬似ループではなく、
 | `$harness-loop all --max-cycles 3` | 最大 3 サイクルで停止 |
 | `$harness-loop all --max-workers 4` | 1 cycle の ready batch を最大 4 worker までに制限 |
 | `$harness-loop all --max-workers max` | ready batch 内で実行可能なタスク数を上限として並列化 |
+| `$harness-loop all --plan roadmap` | named Plans の `roadmap` を対象にループ実行 |
 | `$harness-loop all --executor task` | 旧来の 1 task per cycle local worker 実行へ逃がす |
 | `$harness-loop all --pacing night` | サイクル間の待機を長めにする |
 | `$harness-loop status` | 現在の実行状況を確認 |
@@ -66,6 +67,7 @@ harness codex-loop start all
 harness codex-loop start 41.1-41.4 --max-cycles 5 --pacing worker
 harness codex-loop start JLB3R-02..JLB3R-08 --max-cycles 5 --pacing worker
 harness codex-loop start all --max-workers max --pacing worker
+harness codex-loop start all --plan roadmap --max-cycles 5
 harness codex-loop start all --executor task --max-cycles 5
 ```
 
@@ -77,6 +79,8 @@ harness codex-loop start all --executor task --max-cycles 5
 `max` は、選択範囲内で Depends が満たされた ready task の数をそのまま上限にする。
 `--executor task` は、Breezing ではなく local worker に 1 task だけ渡す互換用の逃げ道。
 問題切り分けや、並列実行したくない危険な作業で使う。
+複数 Plans.md がある repo では、長時間 run の起動時に `--plan NAME` を明示する。
+runner は開始時に解決した Plans file を cycle 間で保持するため、途中で active plan を切り替えない。
 
 ### 状態確認
 

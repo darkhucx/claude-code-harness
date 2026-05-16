@@ -1,12 +1,6 @@
 ---
 name: session-init
 description: "通过环境检查与任务状态概览完成会话初始化。在用户提到开始会话、开始工作或状态检查时使用。不用于：实现工作、评审或会话中任务。"
-description-en: "Internal sub-skill for session startup checks, Plans.md status, git state, and harness-mem resume pack. Invoked by session/startup workflows only. Do NOT load for: implementation, reviews, or mid-session tasks."
-description-ja: "セッション開始時の環境確認、Plans.md 状況、git状態、harness-mem resume pack を扱う内部サブスキル。session/startup 系からのみ呼ぶ。実装、レビュー、途中作業には使わない。"
-description-zh: "通过环境检查与任务状态概览完成会话初始化。在用户提到开始会话、开始工作或状态检查时使用。不用于：实现工作、评审或会话中任务。"
-allowed-tools: ["Read", "Write", "Bash", "mcp__harness__harness_mem_resume_pack", "mcp__harness__harness_mem_sessions_list", "mcp__harness__harness_mem_health"]
-user-invocable: false
-disable-model-invocation: true
 ---
 
 # Session Init Skill

@@ -53,7 +53,9 @@ Scaffolder は 3 つのモードだけを扱う。
 4. `Cargo.toml`
 5. `Plans.md`
 6. `CLAUDE.md`
-7. `.claude/settings.json`
+7. `docs/spec/00-project-spec.md`
+8. `docs/ARCHITECTURE.md`
+9. `.claude/settings.json`
 
 判定ルール:
 
@@ -66,12 +68,31 @@ Scaffolder は 3 つのモードだけを扱う。
 framework は manifest 内の依存名から 1 つ選ぶ。
 判定できない時は `framework: unknown` を返す。
 
+TDD 推論も同時に行い、`tdd_required` と `skip_tdd_reason` を出力する。
+
+- Plans.md の task に `[tdd:required]` がある -> `tdd_required: true`
+- Plans.md の task に `[tdd:skip:<reason>]` がある -> `tdd_required: false`, `skip_tdd_reason: <reason>`
+- `src/`, `app/`, `cmd/`, `lib/`, `pkg/`, `internal/`, `go/` など source 実装を含む task -> `tdd_required: true`
+- docs / scripts / `.claude/` だけの task -> `tdd_required: false`, `skip_tdd_reason: "docs-only"`
+- test framework が見つからない project -> `tdd_required: false`, `skip_tdd_reason: "no-test-framework-detected"`
+
+優先順は Plans.md tag が最優先で、次に対象 files、最後に scaffolder の推論。
+`[tdd:skip:<reason>]` の reason が空なら scaffold/update-state では成功扱いにしない。
+
+仕様正本も同時に確認し、`spec_path`、`spec_required`、`spec_skip_reason` を出力する。
+
+- 既存の `docs/spec/00-project-spec.md`、`docs/ARCHITECTURE.md`、`docs/HANDOFF.md`、`docs/specs/` があれば `spec_path` に採用する
+- product behavior / API / data model / permission / billing / integration / tenant boundary を変える task は `spec_required: true`
+- docs-only、typo、format、dependency bump、動作変更なし refactor は `spec_required: false` とし、理由を `spec_skip_reason` に入れる
+- `spec_required: true` で `spec_path` がない場合、scaffold mode では `docs/spec/00-project-spec.md` を作成候補に入れる
+
 ## scaffold
 
 1. 先に `analyze` を実行する
 2. 次のファイルを作成対象として扱う
    - `CLAUDE.md`
    - `Plans.md`
+   - `docs/spec/00-project-spec.md`
    - `.claude/settings.json`
    - `.claude/hooks.json`
    - `hooks/pre-tool.sh`
@@ -99,6 +120,11 @@ git log --oneline -n 20
   "mode": "analyze | scaffold | update-state",
   "project_type": "node | python | go | rust | other",
   "framework": "next | express | fastapi | gin | unknown",
+  "tdd_required": true,
+  "skip_tdd_reason": "string|null",
+  "spec_required": true,
+  "spec_path": "docs/spec/00-project-spec.md|null",
+  "spec_skip_reason": "string|null",
   "harness_version": "none | v2 | v3 | v4 | unknown",
   "files_created": ["作成ファイル"],
   "plans_updates": ["更新内容"],
@@ -108,6 +134,6 @@ git log --oneline -n 20
 
 ## 追加ルール
 
-1. `scaffold` で作るファイルは 1 回の実行で最大 6 個
+1. `scaffold` で作るファイルは 1 回の実行で最大 7 個
 2. `update-state` は Plans.md 以外を更新しない
 3. `analyze` だけの実行では書き込みを行わない

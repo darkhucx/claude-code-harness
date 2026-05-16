@@ -151,6 +151,23 @@ bash scripts/claude-longrun.sh --model claude-opus-4-6
 このスクリプトは、内部で `ENABLE_PROMPT_CACHING_1H=1` を付けて `claude` を起動するだけです。
 グローバル設定は変えないので、通常作業への影響を広げません。
 
+### 子プロセスへの env 継承（Codex CLI 連携）
+
+`/breezing --codex` や `scripts/codex-companion.sh task --write` 経由で Codex CLI を呼び出すケースでは、
+`ENABLE_PROMPT_CACHING_1H` が子プロセスに継承されるかどうかを確認しておく必要があります。
+
+| 経路 | 継承するか | 注意点 |
+|------|------------|--------|
+| `bash scripts/codex-companion.sh task --write "..."` | する | 通常の bash subprocess は親 env を継承する |
+| `bash scripts/codex-companion.sh review --base "${REF}"` | する | 同上 |
+| `claude-longrun.sh` 起動の親プロセス | する | scripts が内部で export してから claude を起動 |
+| `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` 有効時 | **scrub される可能性あり** | scrub 対象 env リストに `ENABLE_PROMPT_CACHING_1H` を含めない設計が必要 |
+
+`.claude-plugin/settings.json` の `env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB="1"` は subprocess の汚染環境変数を一掃する目的のため、
+本来 `ENABLE_PROMPT_CACHING_1H` のような Claude Code 自身の挙動制御 env は残されます。
+新規の hook script や wrapper を追加する場合は、明示的に `export ENABLE_PROMPT_CACHING_1H` を保持するか、
+`env -i bash` で env を切り捨てない実装にしておきます。
+
 ---
 
 ## 4. wake-up 回数上限・lock・冪等性ガード

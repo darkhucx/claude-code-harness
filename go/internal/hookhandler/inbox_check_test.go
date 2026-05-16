@@ -140,8 +140,8 @@ func TestHandleInboxCheck_ReadMessages_Filtered(t *testing.T) {
 
 	sessionsDir := filepath.Join(dir, ".claude", "sessions")
 	stateDir := filepath.Join(dir, ".claude", "state")
-	os.MkdirAll(sessionsDir, 0o755)  //nolint:errcheck
-	os.MkdirAll(stateDir, 0o755)     //nolint:errcheck
+	os.MkdirAll(sessionsDir, 0o755)                                              //nolint:errcheck
+	os.MkdirAll(stateDir, 0o755)                                                 //nolint:errcheck
 	os.WriteFile(filepath.Join(sessionsDir, "broadcast.md"), []byte("x"), 0o644) //nolint:errcheck
 
 	// Mix of read and unread messages.
@@ -202,9 +202,9 @@ func TestReadBroadcastMessages_MarkdownFormat(t *testing.T) {
 	if !strings.Contains(msgs[1], "update: task completed") {
 		t.Errorf("message 1 should contain 'update: task completed', got: %s", msgs[1])
 	}
-	// タイムスタンプは HH:MM 形式で含まれるはず
-	if !strings.Contains(msgs[0], "[12:00]") {
-		t.Errorf("message 0 should contain '[12:00]', got: %s", msgs[0])
+	// タイムスタンプは古い通知を今日の通知に見せないよう日付込みで含まれるはず
+	if !strings.Contains(msgs[0], "[2026-04-09 12:00]") {
+		t.Errorf("message 0 should contain full date timestamp, got: %s", msgs[0])
 	}
 }
 
@@ -358,10 +358,9 @@ func TestLastInboxReadFile_EmptySessionID(t *testing.T) {
 	}
 }
 
-// TestHandleInboxCheck_NoAutoMarkAfterDisplay はメッセージ表示後に
-// 既読ファイル (.last_inbox_read_*) が更新されないことを確認する。
-// bash 版は --mark フラグで明示的に更新するまで既読化しない動作に対応。
-func TestHandleInboxCheck_NoAutoMarkAfterDisplay(t *testing.T) {
+// TestHandleInboxCheck_AutoMarksDisplayedBroadcast はメッセージ表示後に
+// 既読ファイル (.last_inbox_read_*) が表示済み broadcast の最大 timestamp で更新されることを確認する。
+func TestHandleInboxCheck_AutoMarksDisplayedBroadcast(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HARNESS_PROJECT_ROOT", dir)
 
@@ -389,11 +388,30 @@ func TestHandleInboxCheck_NoAutoMarkAfterDisplay(t *testing.T) {
 	if out.Len() == 0 {
 		t.Fatal("expected output for message, got nothing")
 	}
+	if !strings.Contains(out.String(), "[2026-04-09 10:00]") {
+		t.Fatalf("expected date-bearing timestamp in output, got: %s", out.String())
+	}
 
-	// 既読ファイルが作成されていないことを確認（自動既読化しない）
+	// 表示済み最大 timestamp で既読ファイルが作成されることを確認。
 	readFile := lastInboxReadFile(sessionsDir, sessionID)
-	if _, err := os.Stat(readFile); err == nil {
-		t.Errorf("last-read file should NOT be created after display: %s", readFile)
+	data, err := os.ReadFile(readFile)
+	if err != nil {
+		t.Fatalf("last-read file should be created after display: %v", err)
+	}
+	if got := strings.TrimSpace(string(data)); got != "2026-04-09T10:00:00Z" {
+		t.Fatalf("last-read timestamp = %q, want displayed broadcast timestamp", got)
+	}
+
+	// throttle を超えた次回チェックでも同じ stale broadcast を再表示しない。
+	checkFile := filepath.Join(sessionsDir, ".last_inbox_check")
+	if err := os.WriteFile(checkFile, []byte("0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var second bytes.Buffer
+	if err := HandleInboxCheck(strings.NewReader(inp), &second); err != nil {
+		t.Fatalf("unexpected error on second check: %v", err)
+	}
+	if strings.Contains(second.String(), "hello, please review") {
+		t.Fatalf("displayed broadcast should not be repeated after auto-mark: %s", second.String())
 	}
 }
-

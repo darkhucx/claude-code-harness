@@ -29,13 +29,15 @@ get_session_id() {
 
 get_last_read_file() {
   local session_id=$(get_session_id)
-  echo "${SESSIONS_DIR}/.last_read_${session_id}"
+  echo "${SESSIONS_DIR}/.last_inbox_read_${session_id}"
 }
 
 get_last_read_time() {
   local last_read_file=$(get_last_read_file)
   if [ -f "$last_read_file" ]; then
     cat "$last_read_file"
+  elif [ -f "${SESSIONS_DIR}/.last_read_$(get_session_id)" ]; then
+    cat "${SESSIONS_DIR}/.last_read_$(get_session_id)"
   else
     echo "1970-01-01T00:00:00Z"
   fi
@@ -120,7 +122,7 @@ main() {
       if [ "$in_message" = true ] && [ -n "$current_content" ]; then
         if [[ "$current_timestamp" > "$last_read" ]] && [[ "$current_sender" != "$short_current" ]]; then
           unread_count=$((unread_count + 1))
-          unread_messages="${unread_messages}\n[${current_timestamp:11:5}] ${current_sender}: ${current_content}"
+          unread_messages="${unread_messages}\n[${current_timestamp:0:10} ${current_timestamp:11:5}] ${current_sender}: ${current_content}"
         fi
       fi
 
@@ -138,7 +140,7 @@ main() {
   if [ "$in_message" = true ] && [ -n "$current_content" ]; then
     if [[ "$current_timestamp" > "$last_read" ]] && [[ "$current_sender" != "$short_current" ]]; then
       unread_count=$((unread_count + 1))
-      unread_messages="${unread_messages}\n[${current_timestamp:11:5}] ${current_sender}: ${current_content}"
+      unread_messages="${unread_messages}\n[${current_timestamp:0:10} ${current_timestamp:11:5}] ${current_sender}: ${current_content}"
     fi
   fi
 

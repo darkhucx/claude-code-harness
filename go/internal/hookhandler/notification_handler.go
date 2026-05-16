@@ -93,8 +93,48 @@ func HandleNotification(in io.Reader, out io.Writer) error {
 			input.AgentType)
 	}
 
+	// terminalSequence 出力 (CC 2.1.141+, opt-in via HARNESS_TERMINAL_NOTIFY)
+	// permission_prompt / elicitation_dialog のように operator の注意を喚起したい通知では
+	// Claude Code が controlling terminal なしでも desktop 通知 / window title / bell を発火できる。
+	// 詳細: .claude/rules/hooks-2.1.139-plus.md
+	if title, body, ok := notificationTerminalTitleBody(notificationType, input.AgentType); ok {
+		seq := BuildTerminalSequence(title, body)
+		if seq != "" {
+			resp := map[string]interface{}{
+				"decision":         "approve",
+				"reason":           "notification logged",
+				"terminalSequence": seq,
+			}
+			if writeErr := writeJSON(out, resp); writeErr != nil {
+				return writeErr
+			}
+			return nil
+		}
+	}
+
 	// 通知ハンドラは常に正常終了（approve）
 	return nil
+}
+
+// notificationTerminalTitleBody は terminalSequence に使う title/body を notification_type から組み立てる。
+// 既知の type 以外は ok=false を返し、terminalSequence は emit されない。
+func notificationTerminalTitleBody(notificationType, agentType string) (string, string, bool) {
+	agent := agentType
+	if agent == "" {
+		agent = "main"
+	}
+	switch notificationType {
+	case "permission_prompt":
+		return "Claude Code: permission prompt", agent + " waiting for approval", true
+	case "elicitation_dialog":
+		return "Claude Code: elicitation", agent + " MCP elicitation", true
+	case "idle_prompt":
+		return "Claude Code: idle", "session idle", true
+	case "auth_success":
+		return "Claude Code: auth success", "", true
+	default:
+		return "", "", false
+	}
 }
 
 // resolveNotificationStateDir は環境変数を考慮してステートディレクトリを返す。

@@ -239,10 +239,16 @@ assert_file_contains \
   "テスト改ざん防止|Test Tampering Prevention" \
   "CLAUDE.md にテスト改ざん防止セクションがある"
 
-assert_file_contains \
-  "AGENTS.md" \
-  "3層防御|3-layer|第1層|第2層|第3層" \
-  "AGENTS.md に3層防御戦略の説明がある"
+# AGENTS.md は Codex CLI の project-local config で、clean public checkout には
+# 含まれない (codex-cli-only.md 参照)。存在する場合のみ assert する。
+if [ -f "AGENTS.md" ]; then
+  assert_file_contains \
+    "AGENTS.md" \
+    "3層防御|3-layer|第1層|第2層|第3層" \
+    "AGENTS.md に3層防御戦略の説明がある"
+else
+  echo "[skip] AGENTS.md not found (Codex CLI local config; not in public checkout)"
+fi
 
 # README.md の品質保証関連の言及
 assert_file_contains \
@@ -250,10 +256,17 @@ assert_file_contains \
   "Test tampering|Quality|品質" \
   "README.md に品質保証関連の言及がある"
 
-# 設計ドキュメント
-assert_file_exists \
-  "docs/update-summary-2025-12-23-24.md" \
-  "品質ガード導入ドキュメントが存在する"
+# 設計ドキュメント (历史的な品質ガード導入記録)
+# docs/update-summary-2025-12-23-24.md は導入時の一時的なサマリー doc。
+# 現在は CLAUDE.md / .claude/rules/test-quality.md / implementation-quality.md に
+# 統合されたため、ファイル自体が存在する場合のみ assert する。
+if [ -f "docs/update-summary-2025-12-23-24.md" ]; then
+  assert_file_exists \
+    "docs/update-summary-2025-12-23-24.md" \
+    "品質ガード導入ドキュメントが存在する"
+else
+  echo "[skip] docs/update-summary-2025-12-23-24.md not found (statement consolidated into CLAUDE.md and .claude/rules/)"
+fi
 
 echo ""
 

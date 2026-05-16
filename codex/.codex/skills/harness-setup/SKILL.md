@@ -55,6 +55,10 @@ Harness の統合セットアップスキル。
 > plugin-bundled hooks は opt-in、external agent import は ownership 明記、
 > MultiAgentV2 / `agents.max_threads = 8` は上限として扱い、
 > sticky environments / app-server artifacts は safe default を優先する。
+> Codex `0.130.0` stable の `codex remote-control`、large thread pagination、
+> selected-environment `view_image`、live app-server config refresh、
+> accurate turn diffs、plugin details bundled hooks、sharing discoverability controls は
+> `docs/codex-plugin-workflows-policy.md` を正本として扱う。
 > 詳細は `docs/codex-plugin-workflows-policy.md` を参照。
 
 ## サブコマンド詳細
@@ -161,17 +165,19 @@ TIMEOUT=$(command -v timeout || command -v gtimeout || echo "")
 > **注意**: Harness v4.0 本体（`harness` コマンド）は Node.js 不要の Go バイナリ。
 > Codex CLI（`codex` コマンド）は別ツールであり、引き続き Node.js が必要。
 
-### Codex provider / model metadata policy (0.123.0+)
+### Codex provider / model metadata policy (0.123.0+ / 0.130.0)
 
-Codex `0.123.0` 以降の provider / model guidance は
+Codex `0.123.0` 以降の provider / model guidance と、Codex `0.130.0` stable の Bedrock `aws login` guidance は
 `docs/codex-provider-setup-policy.md` を正本として扱う。
 
 要点:
 
 - Bedrock を使う場合は、Codex built-in provider の `amazon-bedrock` を使う。
 - AWS profile は user / project の Codex config で `[model_providers.amazon-bedrock.aws]` に置く。
-- Harness は AWS credential や provider endpoint を書き込まない。
+- AWS console-login credentials from `aws login` profiles は AWS 側の profile material として扱う。
+- Harness は AWS credential、console-login cache、provider endpoint を書き込まない。
 - Harness の配布用 Codex config には `model = "gpt-5.4"` を setup default として固定しない。
+- Harness の配布用 Codex config には `model_provider = "amazon-bedrock"` も setup default として固定しない。
 - `gpt-5.4` は Codex 本体の current model metadata として扱い、古い `gpt-5.2-codex` などを推奨 sample として残さない。
 - Claude Code 側の `CLAUDE_CODE_USE_BEDROCK` / `ANTHROPIC_DEFAULT_*` / `modelOverrides` guidance と、Codex の `model_provider = "amazon-bedrock"` は混ぜない。
 
@@ -188,6 +194,25 @@ Claude Code 側の provider / MCP / telemetry guidance は
 `docs/claude-code-setup-mcp-telemetry-provider.md` を参照する。
 特に `ANTHROPIC_BEDROCK_SERVICE_TIER` は Bedrock 利用者の provider 環境だけで扱い、
 Harness の plugin default / template / shared project settings には入れない。
+
+### Codex app-server / plugin workflow policy (0.130.0)
+
+Codex `0.130.0` stable (`rust-v0.130.0`, published `2026-05-08T23:09:55Z`) の app-server / plugin workflow guidance は
+`docs/codex-plugin-workflows-policy.md` を正本として扱う。
+
+要点:
+
+- `codex remote-control` は headless remotely controllable app-server の明示起動 entrypoint。Harness setup は remote-control defaults を config に書かない。
+- App-server clients can page large threads。長い loop / Breezing transcript は必要な page 範囲を確認する。
+- `view_image` は multi-environment session の selected environments 経由で file を解決できる。artifact report には environment / workdir を添える。
+- Live app-server threads pick up config changes without restart。ただし secret / provider / hook policy の変更は diff と verification で扱う。
+- Turn diffs stay accurate across `apply_patch` including partial failures。最終判断は `git diff` と tests で確認する。
+- Plugin details now show bundled hooks。install / share 前に bundled hooks を確認し、Harness bundled hooks は opt-in のままにする。
+- Plugin sharing exposes link metadata and discoverability controls。公開範囲と metadata は release surface として確認する。
+- Configurable OpenTelemetry trace metadata は debugging / triage 補助に限定し、個人情報・顧客情報・secret を入れない。
+- Built-in MCPs first-class runtime servers は Codex runtime owned surface として扱い、plugin-provided MCP と所有者を混ぜない。
+- `CODEX_HOME` environments TOML provider は user-level environment source。選択 environment を報告し、write turn は one primary environment に固定する。
+- Remove skills list extra roots に依存せず、Harness mirror install または `[[skills.config]]` path-based loading を明示する。
 
 ### Codex MCP diagnostics / plugin loading (0.123.0+)
 

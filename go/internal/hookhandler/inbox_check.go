@@ -27,6 +27,11 @@ type inboxLine struct {
 	Msg  string `json:"msg"`
 }
 
+type broadcastMessage struct {
+	Line      string
+	Timestamp time.Time
+}
+
 // inboxCheckInput is the stdin JSON payload for PreToolUse hooks.
 type inboxCheckInput struct {
 	SessionID string `json:"session_id"`
@@ -87,7 +92,8 @@ func HandleInboxCheck(in io.Reader, out io.Writer) error {
 
 	// Read messages from broadcast.md newer than lastReadTime.
 	// 自セッションの broadcast をフィルタするため session_id を渡す。
-	messages, err := readBroadcastMessagesSince(broadcastFile, 5, lastReadTime, inp.SessionID)
+	broadcastMessages, err := readBroadcastMessagesSinceDetailed(broadcastFile, 5, lastReadTime, inp.SessionID)
+	messages := broadcastMessageLines(broadcastMessages)
 	if err != nil || len(messages) == 0 {
 		// Fallback: try session-inbox.jsonl for backward compatibility.
 		inboxFile := projectRoot + "/.claude/state/session-inbox.jsonl"
@@ -97,9 +103,9 @@ func HandleInboxCheck(in io.Reader, out io.Writer) error {
 		}
 	}
 
-	// NOTE: 既読マークは明示的な --mark 操作でのみ更新する（bash 版の動作と一致）。
-	// メッセージ表示時に自動で updateLastInboxRead() を呼ばないことで、
-	// 次回チェック時（5分スロットル経過後）に再表示される動作を維持する。
+	if len(broadcastMessages) > 0 {
+		updateLastInboxReadTo(sessionsDir, inp.SessionID, newestBroadcastTimestamp(broadcastMessages))
+	}
 
 	// Build additionalContext string.
 	ctx := fmt.Sprintf("📨 他セッションからのメッセージ %d件:\n---\n%s\n---",
@@ -146,14 +152,25 @@ func lastInboxReadTime(sessionsDir, sessionID string) time.Time {
 // updateLastInboxRead はセッション固有の既読タイムスタンプを現在時刻で更新する。
 // bash 版 session-inbox-check.sh の mark_as_read() に相当。
 func updateLastInboxRead(sessionsDir, sessionID string) {
+	updateLastInboxReadTo(sessionsDir, sessionID, time.Now().UTC())
+}
+
+func updateLastInboxReadTo(sessionsDir, sessionID string, ts time.Time) {
 	f := lastInboxReadFile(sessionsDir, sessionID)
-	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
-	_ = os.WriteFile(f, []byte(now+"\n"), 0o644)
+	if ts.IsZero() {
+		ts = time.Now().UTC()
+	}
+	_ = os.WriteFile(f, []byte(ts.UTC().Format("2006-01-02T15:04:05Z")+"\n"), 0o644)
 }
 
 // readBroadcastMessagesSince は broadcast.md から since 以降のメッセージを最大 maxCount 件読む。
 // since が zero の場合は全メッセージを返す（初回読み込み相当）。
 func readBroadcastMessagesSince(path string, maxCount int, since time.Time, currentSessionID string) ([]string, error) {
+	msgs, err := readBroadcastMessagesSinceDetailed(path, maxCount, since, currentSessionID)
+	return broadcastMessageLines(msgs), err
+}
+
+func readBroadcastMessagesSinceDetailed(path string, maxCount int, since time.Time, currentSessionID string) ([]broadcastMessage, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -169,7 +186,7 @@ func readBroadcastMessagesSince(path string, maxCount int, since time.Time, curr
 		selfPrefix = currentSessionID
 	}
 
-	var msgs []string
+	var msgs []broadcastMessage
 	var currentTimestamp, currentSender, currentContent string
 	inMessage := false
 
@@ -187,12 +204,14 @@ func readBroadcastMessagesSince(path string, maxCount int, since time.Time, curr
 			// since 以前のメッセージはスキップ
 			return
 		}
-		// Format: [HH:MM] sender: content
 		ts := currentTimestamp
-		if len(ts) >= 16 {
-			ts = ts[11:16] // extract HH:MM from ISO timestamp
+		if parseErr == nil {
+			ts = msgTime.UTC().Format("2006-01-02 15:04")
 		}
-		msgs = append(msgs, fmt.Sprintf("[%s] %s: %s", ts, currentSender, currentContent))
+		msgs = append(msgs, broadcastMessage{
+			Line:      fmt.Sprintf("[%s] %s: %s", ts, currentSender, currentContent),
+			Timestamp: msgTime,
+		})
 	}
 
 	scanner := bufio.NewScanner(f)
@@ -215,6 +234,24 @@ func readBroadcastMessagesSince(path string, maxCount int, since time.Time, curr
 	flush()
 
 	return msgs, scanner.Err()
+}
+
+func broadcastMessageLines(messages []broadcastMessage) []string {
+	lines := make([]string, 0, len(messages))
+	for _, msg := range messages {
+		lines = append(lines, msg.Line)
+	}
+	return lines
+}
+
+func newestBroadcastTimestamp(messages []broadcastMessage) time.Time {
+	var newest time.Time
+	for _, msg := range messages {
+		if msg.Timestamp.After(newest) {
+			newest = msg.Timestamp
+		}
+	}
+	return newest
 }
 
 // throttleAllowed returns true when enough time has passed since the last check.

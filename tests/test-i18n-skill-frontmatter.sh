@@ -12,14 +12,23 @@ cd "$PROJECT_ROOT"
 bash scripts/i18n/check-translations.sh
 
 python3 - <<'PY'
+import subprocess
 from pathlib import Path
 
 SURFACES = [
     Path("skills"),
     Path("skills-codex"),
     Path("codex/.codex/skills"),
-    Path("opencode/skills"),
 ]
+
+
+def is_git_ignored(path: Path) -> bool:
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", "--", str(path)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
 
 
 def frontmatter(path: Path) -> dict[str, str]:
@@ -40,7 +49,7 @@ def frontmatter(path: Path) -> dict[str, str]:
 skill_count = 0
 all_text = []
 for surface in SURFACES:
-    files = sorted(surface.glob("*/SKILL.md"))
+    files = [path for path in sorted(surface.glob("*/SKILL.md")) if not is_git_ignored(path)]
     assert files, f"{surface}: no SKILL.md files found"
     for path in files:
         skill_count += 1
@@ -56,5 +65,7 @@ for phrase in ("実装して", "レビューして", "計画作って"):
 
 print(f"validated {skill_count} shipped skill files")
 PY
+
+node scripts/validate-opencode.js >/dev/null
 
 echo "✓ shipped skill frontmatter preserves English default and Japanese routing"

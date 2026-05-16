@@ -8,6 +8,8 @@
 # 設定ファイルのデフォルトパス
 CONFIG_FILE="${CONFIG_FILE:-.claude-code-harness.config.yaml}"
 PROJECT_ROOT="${PROJECT_ROOT:-$(pwd)}"
+PLAN_MANIFEST_FILE="${PLAN_MANIFEST_FILE:-plans/manifest.json}"
+ACTIVE_PLAN_FILE="${ACTIVE_PLAN_FILE:-.claude/state/active-plan.json}"
 
 yaml_get_value() {
   local query="$1"
@@ -202,8 +204,109 @@ get_plans_directory() {
   validate_plans_directory "$value"
 }
 
-# Plans.md のフルパスを取得
-get_plans_file_path() {
+validate_plan_name() {
+  local name="$1"
+  case "$name" in
+    ''|*[!A-Za-z0-9_.-]*|.*|*-|*.)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+validate_plan_relative_path() {
+  local value="$1"
+
+  python3 - "$PROJECT_ROOT" "$value" <<'PY' 2>/dev/null
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]).resolve()
+raw = sys.argv[2].strip()
+if not raw:
+    raise SystemExit(1)
+candidate = Path(raw)
+if candidate.is_absolute():
+    raise SystemExit(1)
+if any(part == ".." for part in candidate.parts):
+    raise SystemExit(1)
+resolved = (root / candidate).resolve(strict=False)
+if resolved != root and root not in resolved.parents:
+    raise SystemExit(1)
+print(raw)
+PY
+}
+
+read_plan_from_manifest() {
+  local plan_name="$1"
+  local manifest="${PROJECT_ROOT}/${PLAN_MANIFEST_FILE}"
+
+  [ -f "$manifest" ] || return 1
+  validate_plan_name "$plan_name" || return 1
+
+  python3 - "$manifest" "$plan_name" <<'PY' 2>/dev/null
+import json
+import sys
+
+manifest_path, plan_name = sys.argv[1:3]
+with open(manifest_path, "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+plans = data.get("plans", {})
+entry = plans.get(plan_name)
+if isinstance(entry, str):
+    print(entry)
+elif isinstance(entry, dict) and isinstance(entry.get("path"), str):
+    print(entry["path"])
+else:
+    raise SystemExit(1)
+PY
+}
+
+resolve_named_plan_file_path() {
+  local plan_name="$1"
+  local raw_path=""
+  local validated=""
+
+  raw_path="$(read_plan_from_manifest "$plan_name")" || return 1
+  validated="$(validate_plan_relative_path "$raw_path")" || return 1
+  printf '%s\n' "$validated"
+}
+
+get_active_plan_name() {
+  local active_file="${PROJECT_ROOT}/${ACTIVE_PLAN_FILE}"
+  [ -f "$active_file" ] || return 0
+
+  python3 - "$active_file" <<'PY' 2>/dev/null
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+value = data.get("active_plan", "")
+if isinstance(value, str):
+    print(value)
+PY
+}
+
+get_selected_plan_name() {
+  if [ -n "${HARNESS_PLAN_NAME:-}" ]; then
+    printf '%s\n' "$HARNESS_PLAN_NAME"
+    return 0
+  fi
+
+  local active_plan=""
+  active_plan="$(get_active_plan_name)"
+  if [ -n "$active_plan" ]; then
+    printf '%s\n' "$active_plan"
+    return 0
+  fi
+
+  printf '%s\n' "default"
+}
+
+get_legacy_plans_file_path() {
   local plans_dir
   plans_dir=$(get_plans_directory)
 
@@ -223,6 +326,23 @@ get_plans_file_path() {
   local default_path="${plans_dir}/Plans.md"
   [ "$plans_dir" = "." ] && default_path="Plans.md"
   echo "$default_path"
+}
+
+# Plans.md のフルパスを取得
+get_plans_file_path() {
+  if [ -n "${HARNESS_PLAN_FILE:-}" ]; then
+    validate_plan_relative_path "$HARNESS_PLAN_FILE"
+    return $?
+  fi
+
+  local selected_plan=""
+  selected_plan="$(get_selected_plan_name)"
+  if [ "$selected_plan" != "default" ] || [ -f "${PROJECT_ROOT}/${PLAN_MANIFEST_FILE}" ]; then
+    resolve_named_plan_file_path "$selected_plan"
+    return $?
+  fi
+
+  get_legacy_plans_file_path
 }
 
 # Plans.md が存在するかチェック

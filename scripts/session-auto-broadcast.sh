@@ -39,8 +39,15 @@ fi
 
 # ===== ファイルパスを抽出 =====
 FILE_PATH=""
+CWD=""
 if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
   FILE_PATH="$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)"
+  CWD="$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+fi
+
+if [ -n "$CWD" ] && [ ! -d "$CWD" ]; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":""}}'
+  exit 0
 fi
 
 # ファイルパスがない場合は終了

@@ -94,3 +94,63 @@ func TestBuildContextProtectedBranchPushPolicyDefaultAsk(t *testing.T) {
 		t.Fatalf("ProtectedBranchPushPolicy = %q, want ask", ctx.ProtectedBranchPushPolicy)
 	}
 }
+
+func TestBuildContextTDDRuntimeConfigFromHarnessTOML(t *testing.T) {
+	dir := t.TempDir()
+	tomlPath := filepath.Join(dir, "harness.toml")
+	data := []byte(`
+[tdd.enforce]
+enabled = true
+level = "max"
+hook_enabled = true
+bypass_audit_required = true
+`)
+	if err := os.WriteFile(tomlPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := BuildContext(hookproto.HookInput{
+		CWD:       dir,
+		ToolName:  "Write",
+		ToolInput: map[string]interface{}{"file_path": filepath.Join(dir, "src", "feature.ts")},
+	})
+
+	if ctx.TddEnforceLevel != tddEnforceLevelMax {
+		t.Fatalf("TddEnforceLevel = %q, want max", ctx.TddEnforceLevel)
+	}
+	if !ctx.TddHookEnabled {
+		t.Fatal("TddHookEnabled = false, want true")
+	}
+	if ctx.TddBypass {
+		t.Fatal("TddBypass = true, want false")
+	}
+}
+
+func TestBuildContextTDDRuntimeConfigEnvDisablesHook(t *testing.T) {
+	dir := t.TempDir()
+	tomlPath := filepath.Join(dir, "harness.toml")
+	data := []byte(`
+[tdd.enforce]
+enabled = true
+level = "max"
+hook_enabled = true
+bypass_audit_required = true
+`)
+	if err := os.WriteFile(tomlPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_TDD_ENFORCE_ENABLED", "false")
+
+	ctx := BuildContext(hookproto.HookInput{
+		CWD:       dir,
+		ToolName:  "Write",
+		ToolInput: map[string]interface{}{"file_path": filepath.Join(dir, "src", "feature.ts")},
+	})
+
+	if ctx.TddEnforceLevel != tddEnforceLevelOff {
+		t.Fatalf("TddEnforceLevel = %q, want off", ctx.TddEnforceLevel)
+	}
+	if ctx.TddHookEnabled {
+		t.Fatal("TddHookEnabled = true, want false")
+	}
+}

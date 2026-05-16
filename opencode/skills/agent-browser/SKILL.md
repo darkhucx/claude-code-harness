@@ -1,14 +1,6 @@
 ---
 name: agent-browser
 description: "像操作手脚一样控制浏览器。页面跳转、表单填写、截图，全都搞定。在用户要求浏览网页、填写表单、截图、抓取网页数据、测试 Web 应用或自动化浏览器流程时使用。触发短语包括 'go to [url]'、'click on'、'fill out the form'、'take a screenshot'、'scrape'、'automate'、'test the website'、'log into' 或任何浏览器交互请求。不用于：分享 URL、嵌入链接、截图图片文件。"
-description-en: "Browser automation through the repo agent-browser CLI. Explicit helper for navigation, forms, screenshots, scraping, and web-app checks. Prefer Browser Use or Playwright when available. Do NOT load for: sharing URLs, embedding links, or editing screenshot files."
-description-ja: "repo の agent-browser CLI でブラウザ操作を行う明示補助スキル。ページ遷移、フォーム、スクショ、スクレイピング、Webアプリ確認向け。利用可能なら Browser Use / Playwright を優先。URL共有、リンク埋め込み、スクショ画像編集には使わない。"
-description-zh: "像操作手脚一样控制浏览器。页面跳转、表单填写、截图，全都搞定。在用户要求浏览网页、填写表单、截图、抓取网页数据、测试 Web 应用或自动化浏览器流程时使用。触发短语包括 'go to [url]'、'click on'、'fill out the form'、'take a screenshot'、'scrape'、'automate'、'test the website'、'log into' 或任何浏览器交互请求。不用于：分享 URL、嵌入链接、截图图片文件。"
-allowed-tools: ["Bash", "Read"]
-user-invocable: false
-disable-model-invocation: true
-context: fork
-argument-hint: "[url] [--headless]"
 ---
 
 # Agent Browser Skill

@@ -1,0 +1,19 @@
+{
+  "decisions": [
+    { "id": "D22", "title": "3層メモリアーキテクチャ", "relevance": "Layer 1 共存設計" },
+    { "id": "D37", "title": "Worker 3 層防御", "relevance": "契約層の参考" },
+    { "id": "D40", "title": "tri-state health", "relevance": "active watching test の参考" },
+    { "id": "D41", "title": "harness-mem managed-companion", "relevance": "依存境界" }
+  ],
+  "patterns": [
+    { "id": "P5",  "title": "Hook script template", "relevance": "テンプレ流用" },
+    { "id": "P29", "title": "dual hooks.json sync", "relevance": "PostToolUse hook 追加時" }
+  ],
+  "plans_archive": [
+    { "phase": "Phase 41 - Issue auto-trigger pipeline",  "archive_path": ".claude/memory/archive/Plans-2026-04-21-phase34-46.md", "outcome": "cc:完了", "relevance": "skill skeleton + scripts + tests + e2e の 4 段構成" },
+    { "phase": "Phase 50 - Active watching tests",         "archive_path": ".claude/memory/archive/Plans-2026-05-01-phase47-50.md", "outcome": "cc:完了", "relevance": "test policy 同型" },
+    { "phase": "Phase 58 - Upstream snapshot integration", "archive_path": ".claude/memory/archive/Plans-2026-05-04-phase51-58.md", "outcome": "cc:完了", "relevance": "snapshot pattern" },
+    { "phase": "Phase 60 - harness-mem migration",         "archive_path": ".claude/memory/archive/Plans-2026-05-06-phase59-61.md", "outcome": "cc:完了", "relevance": "managed-companion" },
+    { "phase": "Phase 61 - elicitation handler",            "archive_path": ".claude/memory/archive/Plans-2026-05-06-phase59-61.md", "outcome": "cc:完了", "relevance": "ledger pattern" }
+  ]
+}

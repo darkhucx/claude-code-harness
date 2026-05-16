@@ -182,10 +182,16 @@ PY
 }
 
 test_skill_docs_reference_structured_version_sync() {
+  # `.agents/skills/...` は local-only mirror (clean public checkout には無い)。
+  # 存在する skill ファイルだけを assert し、欠落した mirror は skip する。
   for skill in \
     "$PROJECT_ROOT/skills/harness-release/SKILL.md" \
     "$PROJECT_ROOT/codex/.codex/skills/harness-release/SKILL.md" \
     "$PROJECT_ROOT/.agents/skills/harness-release/SKILL.md"; do
+    if [ ! -f "$skill" ]; then
+      echo "[skip] $skill not found (local-only mirror; clean public checkout)"
+      continue
+    fi
     assert_contains "$skill" "scripts/check-release-version-sync.py"
     assert_contains "$skill" "VERSION > package.json > .claude-plugin/plugin.json"
     assert_contains "$skill" ".claude-plugin/marketplace.json"

@@ -1,8 +1,8 @@
 # Codex Provider Setup Policy
 
-最終更新: 2026-04-23
+最終更新: 2026-05-10
 
-この文書は Codex `0.123.0` で追加された provider と model metadata の変更を、Harness の Codex setup guidance として固定するためのものです。
+この文書は Codex `0.123.0` で追加された provider と model metadata、および Codex `0.130.0` stable で明確化された Bedrock 認証の扱いを、Harness の Codex setup guidance として固定するためのものです。
 
 ## ひとことで
 
@@ -17,6 +17,7 @@ Harness は、どの改札へ向かえばよいかを書いた案内板です。
 ## 公式参照
 
 - OpenAI Codex `rust-v0.123.0` release: <https://github.com/openai/codex/releases/tag/rust-v0.123.0>
+- OpenAI Codex `rust-v0.130.0` stable release: <https://github.com/openai/codex/releases/tag/rust-v0.130.0> (published `2026-05-08T23:09:55Z`)
 - Codex Amazon Bedrock provider PR: <https://github.com/openai/codex/pull/18744>
 - Codex config basics: <https://developers.openai.com/codex/config-basic>
 - Codex config reference: <https://developers.openai.com/codex/config-reference>
@@ -29,6 +30,7 @@ Harness は、どの改札へ向かえばよいかを書いた案内板です。
 | `amazon-bedrock` | Codex の built-in Amazon Bedrock provider | Codex `0.123.0` 以降の標準 provider として案内する |
 | `model_provider` | Codex が使う provider を選ぶ設定 | Bedrock を使う人だけが user / project config で設定する。Harness 配布 default には入れない |
 | `model_providers.amazon-bedrock.aws.profile` | AWS profile を選ぶ設定 | 認証情報は AWS 側に置き、Harness は profile 名の例だけ示す |
+| `aws login` / console-login credentials | AWS console-login credential を AWS profile 経由で使う認証経路 | Codex `0.130.0` stable の Bedrock auth として案内する。Harness は credential 本体を書かない |
 | `model` | Codex が使う model を固定する設定 | 再現性が必要な時だけ user / project config で指定する。Harness setup default では固定しない |
 | `gpt-5.4` | Codex `0.123.0` 時点の current default model metadata | Codex 本体の bundled model metadata として扱う。Harness は古い model slug を推奨値として残さない |
 | Claude Code Bedrock guidance | Claude Code 側で Bedrock / Vertex / custom gateway を扱う設定 | Codex の `amazon-bedrock` provider と混ぜない。Claude 側は `CLAUDE_CODE_USE_BEDROCK` や Anthropic model overrides の領域 |
@@ -50,6 +52,16 @@ profile = "codex-bedrock"
 この例の `codex-bedrock` は AWS profile 名です。
 実際の profile 名、AWS region、認証情報は、各環境の AWS 設定に合わせます。
 Harness は AWS credential、temporary token、secret key を書き込みません。
+
+Codex `0.130.0` stable (`rust-v0.130.0`, published `2026-05-08T23:09:55Z`) では、Bedrock auth が `aws login` profile の AWS console-login credentials を使えるようになりました。
+Harness の扱いは変えません。
+
+- `aws login` や AWS console-login credential の実行・保存は AWS 側の責務。
+- Harness は profile 名の置き場所だけを示し、AWS access key、secret key、session token、console-login cache を生成・コピー・保存しない。
+- `codex/.codex/config.toml` の配布 default では `model_provider = "amazon-bedrock"` を有効化しない。
+- Bedrock を使う project / user だけが、自分の config で `model_provider` と profile を明示する。
+
+つまり、console-login credentials は「AWS profile の中身」として扱い、Harness の template や setup は credential material に触れません。
 
 ## Model default policy
 

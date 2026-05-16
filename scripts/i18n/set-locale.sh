@@ -174,11 +174,8 @@ process_skill_dir() {
 # Process all skill directories
 process_skill_dir "$PROJECT_ROOT/skills" "skills"
 process_skill_dir "$PROJECT_ROOT/skills-codex" "skills-codex"
-# skills/ and skills-codex/ are the source-of-truth surfaces.
-process_skill_dir "$PROJECT_ROOT/opencode/skills" "opencode/skills"
 process_skill_dir "$PROJECT_ROOT/codex/.codex/skills" "codex/.codex/skills"
 process_skill_dir "$PROJECT_ROOT/.agents/skills" ".agents/skills"
-process_skill_dir "$PROJECT_ROOT/.opencode/skills" ".opencode/skills"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

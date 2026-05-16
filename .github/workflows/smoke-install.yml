@@ -1,0 +1,129 @@
+name: smoke-install
+
+# Delivery-destination guarantee: prove the harness binary can build, run, and
+# self-validate on every OS we ship release artifacts for. Failures here mean
+# users on at least one platform would receive a broken plugin.
+
+on:
+  pull_request:
+    paths:
+      - 'go/**'
+      - '.claude-plugin/**'
+      - 'skills/**'
+      - 'agents/**'
+      - 'hooks/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'templates/**'
+      - 'VERSION'
+      - 'CHANGELOG.md'
+      - '.github/workflows/smoke-install.yml'
+      - '.github/actions/setup-go-harness/**'
+  push:
+    branches: [main]
+    paths:
+      - 'go/**'
+      - '.claude-plugin/**'
+      - 'skills/**'
+      - 'agents/**'
+      - 'hooks/**'
+      - 'scripts/**'
+      - 'VERSION'
+      - '.github/workflows/smoke-install.yml'
+      - '.github/actions/setup-go-harness/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-install-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    name: ${{ matrix.os }} (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux-amd64
+          - os: macos-latest
+            label: darwin-arm64
+          - os: windows-latest
+            label: windows-amd64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Go (harness composite)
+        uses: ./.github/actions/setup-go-harness
+
+      - name: Build harness binary and add bin/ to PATH
+        working-directory: go
+        shell: bash
+        run: |
+          mkdir -p ../bin
+          EXT=""
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            EXT=".exe"
+          fi
+          go build -o "../bin/harness${EXT}" ./cmd/harness/
+          # Expose bin/ so `harness` is invocable bare and `harness doctor`'s
+          # "bin/harness in PATH" check passes — this exercises the same
+          # invocation pattern end users get after `harness sync`.
+          echo "${GITHUB_WORKSPACE}/bin" >> "${GITHUB_PATH}"
+
+      - name: Smoke — version
+        shell: bash
+        run: |
+          harness version
+          harness 2>&1 | head -5 || true
+
+      - name: Smoke — validate skills
+        shell: bash
+        run: harness validate skills .
+
+      - name: Smoke — validate agents
+        shell: bash
+        run: harness validate agents .
+
+      - name: Smoke — validate all
+        shell: bash
+        run: harness validate all .
+
+      - name: Smoke — doctor
+        shell: bash
+        # No fallback: doctor's non-zero exit is the only signal that the
+        # delivered plugin would be broken on this OS for end users.
+        run: harness doctor .
+
+      - name: Plugin manifest sanity (jq)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            if [ "${RUNNER_OS}" = "macOS" ]; then
+              brew install jq
+            else
+              sudo apt-get update && sudo apt-get install -y jq
+            fi
+          fi
+          name=$(jq -r '.name // empty' .claude-plugin/plugin.json)
+          version=$(jq -r '.version // empty' .claude-plugin/plugin.json)
+          if [ -z "$name" ] || [ -z "$version" ]; then
+            echo "::error::plugin.json missing name or version field"
+            exit 1
+          fi
+          file_version=$(tr -d '[:space:]' < VERSION)
+          if [ "$version" != "$file_version" ]; then
+            echo "::error::VERSION ($file_version) and plugin.json version ($version) drift detected"
+            exit 1
+          fi
+          echo "✅ plugin.json: name=$name version=$version (matches VERSION)"

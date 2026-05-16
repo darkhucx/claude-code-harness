@@ -1,0 +1,11 @@
+{
+  "decisions": [],
+  "patterns": [],
+  "plans_archive": [
+    { "phase": "Phase 1", "archive_path": "archive/p1.md", "outcome": "cc:完了", "relevance": "" },
+    { "phase": "Phase 2", "archive_path": "archive/p2.md", "outcome": "cc:完了", "relevance": "" },
+    { "phase": "Phase 3", "archive_path": "archive/p3.md", "outcome": "cc:完了", "relevance": "" },
+    { "phase": "Phase 4", "archive_path": "archive/p4.md", "outcome": "cc:完了", "relevance": "" },
+    { "phase": "Phase 5", "archive_path": "archive/p5.md", "outcome": "cc:完了", "relevance": "" }
+  ]
+}

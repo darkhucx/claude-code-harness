@@ -1,21 +1,6 @@
 ---
 name: harness-loop
 description: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
-description-en: "Long-running task loop using /loop (Claude Code dynamic mode) and ScheduleWakeup to re-enter with fresh context on each wake-up. Internally invokes harness-work through Agent. Trigger: long-running, loop, wake-up, autonomous. Do NOT load for: one-shot task execution, review, release, planning."
-description-ja: "長時間タスクを /loop と ScheduleWakeup で wake-up 毎に fresh context で再入実行。harness-work を内部で Agent 呼び出し。長時間、ループ、loop、wake-up、autonomous に対応。"
-description-zh: "结合 /loop（CC dynamic mode）与 ScheduleWakeup，使长时间任务在每次 wake-up 时以 fresh context 重新进入执行。内部通过 Agent 调用 harness-work。对应：长时间、循环、loop、wake-up、autonomous。不用于：单次任务执行、评审、发布、计划。"
-kind: workflow
-purpose: "Re-enter long-running Plans.md execution with fresh context"
-trigger: "long-running, loop, wake-up, autonomous"
-shape: delegate
-role: orchestrator
-base: harness-work
-pair: harness-sync
-owner: harness-core
-since: "2026-05-05"
-allowed-tools: ["Read", "Edit", "Bash", "Task", "ScheduleWakeup", "mcp__harness__harness_mem_resume_pack", "mcp__harness__harness_mem_record_checkpoint"]
-argument-hint: "[all|N-M] [--max-cycles N] [--pacing worker|ci|plateau|night]"
-user-invocable: true
 ---
 
 # harness-loop
@@ -45,6 +30,7 @@ user-invocable: true
 | `/harness-loop all` | 全未完了タスクをループ実行（default: max 8 サイクル） |
 | `/harness-loop all --max-cycles 3` | 3 サイクルで停止 |
 | `/harness-loop 41.1-41.3 --pacing ci` | タスク範囲を CI pacing で実行 |
+| `/harness-loop all --plan roadmap` | named Plans の `roadmap` を対象にループ実行 |
 | `/harness-loop all --pacing night` | 深夜バッチ（3600s 間隔） |
 | `/harness-loop status` | 進行中ランナーの状態確認 |
 | `/harness-loop stop` | 進行中ランナーの停止要求 |
@@ -55,6 +41,7 @@ user-invocable: true
 |----------|------|----------|
 | `all` | 全未完了タスクを対象 | - |
 | `N-M` | タスク番号範囲指定 | - |
+| `--plan NAME` | `plans/manifest.json` の named plan を使う | active/default |
 | `--max-cycles N` | 最大サイクル数 | `8` |
 | `--pacing <mode>` | wake-up 間隔モード | `worker`（270s） |
 
@@ -90,6 +77,9 @@ user-invocable: true
 
 `Plans.md` と `.claude/state/...` は host project 側に置く。
 helper script だけを `${HARNESS_PLUGIN_ROOT}/scripts/...` から呼ぶ。
+
+複数 Plans.md がある repo では、長時間 run の起動時に `--plan NAME` を明示する。
+runner は開始時に解決した Plans file を cycle 間で保持するため、途中で active plan を切り替えない。
 
 ```
 wake-up

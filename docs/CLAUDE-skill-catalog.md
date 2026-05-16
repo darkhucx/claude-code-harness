@@ -66,6 +66,9 @@ skills/
 | notebookLM | ドキュメント生成 | 「ドキュメント」「NotebookLM」「スライド」 |
 | troubleshoot | 診断と修復（CI障害含む） | 「動かない」「エラー」「CIが落ちた」 |
 | maintenance | ファイル整理 | 「整理して」「クリーンアップ」 |
+| harness-plan-brief | 着工前 Plan Brief HTML 生成 (Phase 65.1) | 「plan brief」「計画概要」「計画レビュー」 |
+| harness-accept | 引き渡し時 Acceptance Demo HTML 生成 (Phase 65.2) | 「受け入れ判断」「ship/wait/reject」「検収レビュー」 |
+| harness-progress | 進捗 Tracker HTML 生成 + 自動再生成 (Phase 65.4) | 「進捗確認」「進捗ボード」「dashboard」 |
 
 ## 開発用スキル（非公開）
 

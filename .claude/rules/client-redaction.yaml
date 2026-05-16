@@ -1,0 +1,84 @@
+# client-redaction.yaml
+#
+# Purpose:
+#   Phase 65.3.2 - Layer 2a 辞書ベース固有名詞 redaction の SSOT。
+#   harness-mem から取得したテキストに対して、クライアント名・人名・
+#   ドメイン等の固有名詞を [Client_*] / [Person_*] / [Domain_*] 等に
+#   置換するための辞書定義。
+#
+# Schema: client-redaction.v1
+#   PiiRule 互換 (D43 判断 3): 将来の npm package 化への upgrade path を
+#   確保するため、field 名 (rule_id / replace_with) を mem 側
+#   mcp-server/src/pii/pii-filter.ts の PiiRule[] schema と互換にする。
+#
+# Default:
+#   clients: [], people: [], domains: []  (全 redact 無効)
+#
+# Update Rules:
+#   1. opt-in default: 空 dict は何もしない (誤 redact 防止)
+#   2. rule_id は unique (clients/people/domains 全体で一意)
+#   3. name は literal string match (regex ではない、proper noun dict)
+#   4. aliases は同義語/略称 (省略可)
+#   5. replace_with は redact 後の token (例: "[Client_A]")
+#   6. 詳細仕様: docs/cross-project-groups-schema.md (姉妹 doc)
+#
+# Field 互換性 (PiiRule との対応、D43 判断 3):
+#   client-redaction.v1 (本 SSOT)  ←→  pii-filter.ts PiiRule
+#   ────────────────────────────────────────────────────────
+#   rule_id        ←→  rule_id          (完全一致)
+#   name           ←→  pattern          (literal vs regex の違い)
+#   aliases[]      ←→  (PiiRule に無い、本 SSOT 独自)
+#   replace_with   ←→  replace_with     (完全一致)
+#
+#   将来 npm package 化する際は schema converter で双方向変換可能。
+#
+# 二重置換ガード (D43 判断 4):
+#   既に `[REDACTED_*]` `[Entity]` `[Client_*]` `[Person_*]` `[Domain_*]`
+#   等の sentinel mark が入っているテキストは redact 対象から除外する。
+#   server 側 event-recorder.ts:redactContent との衝突防止。
+#
+#   harness-mem S110-006 closure (commit 8b34ecb) で確認:
+#   server 側 [REDACTED_*] format は大文字 EMAIL / KEY / SECRET / HEX を使う。
+#   client 側 sentinel regex は [A-Za-z0-9_]+ で大文字小文字両対応のため
+#   既存実装で問題なし。
+#
+# Envelope signals の扱い (harness-mem S110-006 防御的補足):
+#   memory-server/src/inject/envelope.ts:94-101 の validateProseContainsSignals
+#   は signals[] の各値を prose に substring match で要求する。signals に
+#   PII / 固有名詞を含めると Layer 2 が redact することで envelope 不変条件が
+#   壊れるため、**signals には structural label (project 名 / source 識別子等)
+#   のみ含め、PII / 固有名詞は prose 側に書く** ことを mem 側 SoT (envelope
+#   contract) に合わせて推奨。本 dict はあくまで prose 側を対象にする。
+#
+
+schema_version: client-redaction.v1
+
+clients: []
+people: []
+domains: []
+
+# ---- 設定例 (コメントアウト雛形) ----
+#
+# clients:
+#   - rule_id: client-001
+#     name: NoraiCorp
+#     aliases:
+#       - Norai Corp
+#       - Norai 株式会社
+#     replace_with: "[Client_A]"
+#
+#   - rule_id: client-002
+#     name: YorozuPro
+#     replace_with: "[Client_B]"
+#
+# people:
+#   - rule_id: person-001
+#     name: 田中太郎
+#     aliases:
+#       - 田中
+#     replace_with: "[Person_A]"
+#
+# domains:
+#   - rule_id: domain-001
+#     name: example.com
+#     replace_with: "[Domain_A]"

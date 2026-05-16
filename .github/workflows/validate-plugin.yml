@@ -9,16 +9,52 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded PR runs but never cancel a main-branch run mid-flight,
+# because main runs feed into release readiness checks downstream.
+concurrency:
+  group: validate-plugin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+
+      - name: Setup Go (harness composite)
+        uses: ./.github/actions/setup-go-harness
+
+      - name: Install actionlint via go install (version-pinned, immutable)
+        # Using `go install MODULE@VERSION` resolves to a content-addressed
+        # module proxy entry, providing the same supply-chain guarantees as
+        # SHA-pinned actions without depending on a mutable Docker tag.
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Run actionlint (workflow YAML lint)
+        run: |
+          "$(go env GOPATH)/bin/actionlint" -color
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+          # check-version-bump.sh needs `origin/$GITHUB_BASE_REF`, so we still
+          # fetch full history but skip blobs for a faster checkout.
           fetch-depth: 0
+          filter: blob:none
 
       - name: Check release metadata policy
         run: |
@@ -27,11 +63,8 @@ jobs:
       - name: Install command-line dependencies
         run: sudo apt-get update && sudo apt-get install -y jq ripgrep
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
+      - name: Setup Go (harness composite)
+        uses: ./.github/actions/setup-go-harness
 
       - name: Build harness binary for validation scripts
         working-directory: go
@@ -63,13 +96,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+
+      - name: Setup Go (harness composite)
+        uses: ./.github/actions/setup-go-harness
 
       - name: Build harness binary
         working-directory: go

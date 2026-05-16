@@ -1,0 +1,38 @@
+{
+  "schema": "acceptance-context.v1",
+  "user_request": "Plan Brief MVP を 5 タスクで完走",
+  "user_request_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "demo_artifacts": [],
+  "verified_criteria": [
+    { "name": "AC-1", "passed": false, "evidence": "" },
+    { "name": "AC-2", "passed": false, "evidence": "" },
+    { "name": "AC-3", "passed": false, "evidence": "" },
+    { "name": "AC-4", "passed": false, "evidence": "" },
+    { "name": "AC-5", "passed": false, "evidence": "" }
+  ],
+  "unverified_caveats": [
+    "実装が未着手で全 criteria が未検証"
+  ],
+  "past_issue_patterns": [],
+  "recommendation": "reject",
+  "recommendation_evidence": [
+    "verified 0 件 / 全 5 件 (0%) → reject 閾値以下 (< 0.5)",
+    "全 criteria に evidence 未提示"
+  ],
+  "project": "claude-code-harness",
+  "generated_at": "2026-05-09T18:32:00Z",
+  "verified_criteria_items": [
+    { "name": "AC-1", "status_label": "failed", "evidence": "", "evidence_warn": "⚠ evidence 未提示" },
+    { "name": "AC-2", "status_label": "failed", "evidence": "", "evidence_warn": "⚠ evidence 未提示" },
+    { "name": "AC-3", "status_label": "failed", "evidence": "", "evidence_warn": "⚠ evidence 未提示" },
+    { "name": "AC-4", "status_label": "failed", "evidence": "", "evidence_warn": "⚠ evidence 未提示" },
+    { "name": "AC-5", "status_label": "failed", "evidence": "", "evidence_warn": "⚠ evidence 未提示" }
+  ],
+  "unverified_caveats_items": [
+    { "text": "実装が未着手で全 criteria が未検証" }
+  ],
+  "recommendation_evidence_items": [
+    { "text": "verified 0 件 / 全 5 件 (0%) → reject 閾値以下 (< 0.5)" },
+    { "text": "全 criteria に evidence 未提示" }
+  ]
+}

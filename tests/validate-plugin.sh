@@ -459,6 +459,12 @@ else
     fail_test "Plans.md status marker protocol の互換性に問題があります"
 fi
 
+if bash "$PLUGIN_ROOT/tests/test-named-plans.sh" >/dev/null 2>&1; then
+    pass_test "Named Plans registry は manifest / active pointer / --plan を安全に解決します"
+else
+    fail_test "Named Plans registry の契約テストに失敗 — 'bash tests/test-named-plans.sh' で詳細確認"
+fi
+
 echo ""
 echo "6. スクリプトの検証"
 echo "----------------------------------------"
@@ -527,6 +533,18 @@ if command -v claude > /dev/null 2>&1; then
     fi
 else
     warn_test "claude コマンドが未インストール（claude plugin validate をスキップ）"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-distribution-archive.sh" >/dev/null 2>&1; then
+    pass_test "git archive 配布 payload に開発専用ファイルは含まれません"
+else
+    fail_test "git archive 配布 payload に開発専用ファイルが混入しています — 'bash tests/test-distribution-archive.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-public-plugin-inventory.sh" >/dev/null 2>&1; then
+    pass_test "local plugin inventory に非公開スキルは露出していません"
+else
+    fail_test "local plugin inventory に非公開スキルが露出しています — 'bash tests/test-public-plugin-inventory.sh' で詳細確認"
 fi
 
 echo ""
@@ -704,6 +722,279 @@ if bash "$PLUGIN_ROOT/tests/test-windows-worktree-support.sh" > /dev/null 2>&1; 
     pass_test "Windows Breezing worktree support の配布・hook 契約が維持されています (test-windows-worktree-support.sh)"
 else
     fail_test "Windows Breezing worktree support の契約テストに失敗 — 'bash tests/test-windows-worktree-support.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-worktree-create-hook.sh" > /dev/null 2>&1; then
+    pass_test "WorktreeCreate shell hook は decision JSON を cwd として扱いません (test-worktree-create-hook.sh)"
+else
+    fail_test "WorktreeCreate shell hook の cwd 防御テストに失敗 — 'bash tests/test-worktree-create-hook.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-session-inbox-broadcast.sh" > /dev/null 2>&1; then
+    pass_test "session inbox/broadcast は stale 通知の再表示と stale cwd 書き込みを防ぎます (test-session-inbox-broadcast.sh)"
+else
+    fail_test "session inbox/broadcast の stale 通知契約テストに失敗 — 'bash tests/test-session-inbox-broadcast.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-render-html.sh" > /dev/null 2>&1; then
+    pass_test "render-html.sh は mustache 展開と Claude Harness palette 検証を満たします (test-render-html.sh)"
+else
+    fail_test "render-html.sh の契約テストに失敗 — 'bash tests/test-render-html.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-plan-brief-e2e.sh" > /dev/null 2>&1; then
+    pass_test "harness-plan-brief Phase 65.1.x の 5 ステップ e2e パイプラインが round-trip します (test-plan-brief-e2e.sh)"
+else
+    fail_test "harness-plan-brief e2e の契約テストに失敗 — 'bash tests/test-plan-brief-e2e.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-plan-accept-flow-e2e.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.2.x Plan→Accept flow e2e がプラン→受入の完全 trace を user_request_hash で join します (test-plan-accept-flow-e2e.sh)"
+else
+    fail_test "Plan→Accept flow e2e の契約テストに失敗 — 'bash tests/test-plan-accept-flow-e2e.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-cross-project-groups-schema.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.1 cross-project-group.v1 schema validator が yaml SSOT を正しくパース・検証します (test-cross-project-groups-schema.sh)"
+else
+    fail_test "cross-project-groups-schema の契約テストに失敗 — 'bash tests/test-cross-project-groups-schema.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-redact-by-dictionary.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.2 Layer 2a 辞書ベース固有名詞 redaction (PiiRule 互換 + 二重置換ガード) が動作します (test-redact-by-dictionary.sh)"
+else
+    fail_test "redact-by-dictionary の契約テストに失敗 — 'bash tests/test-redact-by-dictionary.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-redact-by-ner.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.3 Layer 2b NER (fugashi tokenizer + fail-open + sentinel guard) が動作します (test-redact-by-ner.sh)"
+else
+    fail_test "redact-by-ner の契約テストに失敗 — 'bash tests/test-redact-by-ner.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-render-html-redaction.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.4 render-html.sh --with-redaction が dict→NER→Layer3 を順次適用し、残骸検出時は HTML 生成を中止します (test-render-html-redaction.sh)"
+else
+    fail_test "render-html-redaction の契約テストに失敗 — 'bash tests/test-render-html-redaction.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-cross-project-flag.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.5 --cross-project-group flag が plan-brief / accept skill に統合され、D43 Option α (MCP N-call) で動作します (test-cross-project-flag.sh)"
+else
+    fail_test "cross-project-flag の契約テストに失敗 — 'bash tests/test-cross-project-flag.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-cross-project-audit.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.6 cross-project-audit.v1 監査ログ append + HTML 監査サマリ表示 + クエリ生記録なし (test-cross-project-audit.sh)"
+else
+    fail_test "cross-project-audit の契約テストに失敗 — 'bash tests/test-cross-project-audit.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-cross-project-redaction-e2e.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.3.7 e2e: 3 member group + dict + NER + Layer 3 + audit + envelope + sentinel guard が一貫して動作します (test-cross-project-redaction-e2e.sh)"
+else
+    fail_test "cross-project-redaction-e2e の契約テストに失敗 — 'bash tests/test-cross-project-redaction-e2e.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-harness-progress.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.4.1 progress-snapshot.v1 + harness-progress skill が Plans.md から進捗 HTML を生成します (test-harness-progress.sh)"
+else
+    fail_test "harness-progress の契約テストに失敗 — 'bash tests/test-harness-progress.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-progress-regen.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.4.2 PostToolUse hook 自動再生成 + 60秒 rate limit + dual hooks.json sync が動作します (test-progress-regen.sh)"
+else
+    fail_test "progress-regen の契約テストに失敗 — 'bash tests/test-progress-regen.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-progress-drift.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.4.3 drift detection が 5 alert kind (scope-creep/time-overrun/repeated-failure/cost-warning/high-risk-file) を発火します (test-progress-drift.sh)"
+else
+    fail_test "progress-drift の契約テストに失敗 — 'bash tests/test-progress-drift.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-progress-past-judgments.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.4.4 過去判断 lookup が rejection_rate_pct + top_3_judgments を返し、cross-project default OFF (test-progress-past-judgments.sh)"
+else
+    fail_test "progress-past-judgments の契約テストに失敗 — 'bash tests/test-progress-past-judgments.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-progress-e2e.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.4.5 e2e: 初回 snapshot → 編集後再生成 → 5 alert 発火 → 過去判断表示 → rate limit が一貫して動作 (test-progress-e2e.sh)"
+else
+    fail_test "progress-e2e の契約テストに失敗 — 'bash tests/test-progress-e2e.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-3-surface-e2e.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.5.1 統合 e2e: 3 surface (plan-brief / progress / accept) が同 user_request_hash + project で完全 trace (test-3-surface-e2e.sh)"
+else
+    fail_test "3-surface-e2e の契約テストに失敗 — 'bash tests/test-3-surface-e2e.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-audit-ui-presence.sh" > /dev/null 2>&1; then
+    pass_test "Phase 65.5.2 監査 UI: 3 HTML templates 全てに audit-trail section + 4 項目 (検索範囲/参照ID/redact/log) (test-audit-ui-presence.sh)"
+else
+    fail_test "audit-ui-presence の契約テストに失敗 — 'bash tests/test-audit-ui-presence.sh' で詳細確認"
+fi
+
+echo ""
+echo "12. TDD compliance check (local trial)"
+echo "----------------------------------------"
+
+TDD_PATHS_FILE="$PLUGIN_ROOT/.claude/rules/tdd-paths.yaml"
+TDD_DETECT_SCRIPT="$PLUGIN_ROOT/scripts/detect-test-framework.sh"
+TDD_LOG_SCRIPT="$PLUGIN_ROOT/scripts/log-tdd-red.sh"
+SPRINT_CONTRACT_GO="$PLUGIN_ROOT/go/internal/hookhandler/sprint_contract.go"
+TDD_LOCAL_TRIAL_TEST="$PLUGIN_ROOT/tests/test-tdd-enforcement-l1l2l4.sh"
+CODEX_HARNESS_WORK_SKILL="$PLUGIN_ROOT/skills-codex/harness-work/SKILL.md"
+CODEX_HARNESS_WORK_MIRROR="$PLUGIN_ROOT/codex/.codex/skills/harness-work/SKILL.md"
+
+if [ -f "$TDD_PATHS_FILE" ] &&
+    grep -q "schema_version: tdd-paths.v1" "$TDD_PATHS_FILE" &&
+    grep -q "languages:" "$TDD_PATHS_FILE" &&
+    grep -q "src_patterns:" "$TDD_PATHS_FILE" &&
+    grep -q "test_patterns:" "$TDD_PATHS_FILE"; then
+    pass_test "TDD path SSOT has the expected tdd-paths.v1 shape"
+else
+    fail_test ".claude/rules/tdd-paths.yaml is missing or malformed"
+fi
+
+if [ -x "$TDD_DETECT_SCRIPT" ]; then
+    tmp_tdd_detect_dir="$(mktemp -d)"
+    printf 'module example.com/tdd\n' > "$tmp_tdd_detect_dir/go.mod"
+    tdd_detect_output="$(bash "$TDD_DETECT_SCRIPT" --project-root "$tmp_tdd_detect_dir" 2>/dev/null || true)"
+    rm -rf "$tmp_tdd_detect_dir" 2>/dev/null || true
+    if printf '%s' "$tdd_detect_output" | python3 -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("framework") == "go" and data.get("command") == "go test ./..." else 1)' 2>/dev/null; then
+        pass_test "detect-test-framework.sh emits usable framework JSON"
+    else
+        fail_test "detect-test-framework.sh did not detect a Go framework fixture"
+    fi
+else
+    fail_test "scripts/detect-test-framework.sh is missing or not executable"
+fi
+
+if [ -x "$TDD_LOG_SCRIPT" ]; then
+    tmp_tdd_log_dir="$(mktemp -d)"
+    if PROJECT_ROOT="$tmp_tdd_log_dir" bash "$TDD_LOG_SCRIPT" --task-id validate-tdd --test-file tests/tdd_test.go --exit-code 1 --framework go >/dev/null 2>&1 &&
+        python3 - "$tmp_tdd_log_dir/.claude/state/tdd-red-log/validate-tdd.jsonl" <<'PY' >/dev/null 2>&1
+import json
+import sys
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    data = json.loads(f.readline())
+if data.get("task_id") != "validate-tdd" or data.get("test_file") != "tests/tdd_test.go" or data.get("exit_code") != 1:
+    raise SystemExit(1)
+PY
+    then
+        pass_test "log-tdd-red.sh writes the shared red-log JSONL signal"
+    else
+        fail_test "log-tdd-red.sh did not write a valid red-log JSONL fixture"
+    fi
+    rm -rf "$tmp_tdd_log_dir" 2>/dev/null || true
+else
+    fail_test "scripts/log-tdd-red.sh is missing or not executable"
+fi
+
+CONTRACT_TDD_STRINGS=(
+    "tdd_required"
+    "test_framework"
+    "test_todo_list"
+    "skip_tdd_reason"
+    "[tdd:required]"
+    "[tdd:skip:"
+    "no-test-framework-detected"
+    "docs-only"
+)
+for needle in "${CONTRACT_TDD_STRINGS[@]}"; do
+    if grep -Fq "$needle" "$SPRINT_CONTRACT_GO"; then
+        pass_test "sprint-contract TDD contract string: $needle"
+    else
+        fail_test "sprint-contract TDD contract string missing: $needle"
+    fi
+done
+
+CODEX_TDD_WORK_STRINGS=(
+    "--tdd-bypass"
+    "log-tdd-red.sh"
+    "HARNESS_TDD_BYPASS_REASON"
+)
+for file in "$CODEX_HARNESS_WORK_SKILL" "$CODEX_HARNESS_WORK_MIRROR"; do
+    if [ -f "$file" ]; then
+        if grep -Eq '^argument-hint: .*--tdd-bypass' "$file"; then
+            pass_test "Codex harness-work argument-hint exposes --tdd-bypass in $(basename "$(dirname "$file")")/$(basename "$file")"
+        else
+            fail_test "Codex harness-work argument-hint missing --tdd-bypass in $file"
+        fi
+        for needle in "${CODEX_TDD_WORK_STRINGS[@]}"; do
+            if grep -Fq -- "$needle" "$file"; then
+                pass_test "Codex harness-work TDD contract string in $(basename "$(dirname "$file")")/$(basename "$file"): $needle"
+            else
+                fail_test "Codex harness-work TDD contract string missing in $file: $needle"
+            fi
+        done
+    else
+        fail_test "Codex harness-work skill file missing: $file"
+    fi
+done
+
+if [ -x "$TDD_LOCAL_TRIAL_TEST" ]; then
+    pass_test "focused L1/L2/L4 TDD local trial test is executable"
+else
+    fail_test "tests/test-tdd-enforcement-l1l2l4.sh is missing or not executable"
+fi
+
+TDD_ENFORCE_ENABLED="$(
+    awk '
+      /^\[tdd\.enforce\]/ { in_section=1; next }
+      /^\[/ && in_section { exit }
+      in_section && /^[[:space:]]*enabled[[:space:]]*=/ {
+        gsub(/[[:space:]]/, "", $0)
+        sub(/^enabled=/, "", $0)
+        print $0
+        exit
+      }
+    ' "$PLUGIN_ROOT/harness.toml" 2>/dev/null
+)"
+if [ "${TDD_ENFORCE_ENABLED:-false}" = "false" ]; then
+    pass_test "TDD enforcement remains opt-in by default (enabled=false)"
+else
+    fail_test "TDD enforcement default must not require enabled=true"
+fi
+
+echo ""
+echo "13. Project spec SSOT workflow check"
+echo "----------------------------------------"
+
+if bash "$PLUGIN_ROOT/tests/test-spec-ssot-workflow.sh" > /dev/null 2>&1; then
+    pass_test "Plans.md task workflow includes project spec SSOT creation/update guard (test-spec-ssot-workflow.sh)"
+else
+    fail_test "project spec SSOT workflow contract failed — 'bash tests/test-spec-ssot-workflow.sh' で詳細確認"
+fi
+
+echo ""
+echo "14. Harness review governance check"
+echo "----------------------------------------"
+
+if bash "$PLUGIN_ROOT/tests/test-harness-review-governance.sh" > /dev/null 2>&1; then
+    pass_test "harness-review は TeamAgent Debate / 合格ライン / spec+Plans+デグレ gate / AskUserQuestion / mirror sync を満たします"
+else
+    fail_test "harness-review governance contract failed — 'bash tests/test-harness-review-governance.sh' で詳細確認"
+fi
+
+if bash "$PLUGIN_ROOT/tests/test-harness-release-governance.sh" > /dev/null 2>&1; then
+    pass_test "harness-release は bare invocation / 未レビュー AskUserQuestion / review→commit→release gate / mirror sync を満たします"
+else
+    fail_test "harness-release governance contract failed — 'bash tests/test-harness-release-governance.sh' で詳細確認"
+fi
+
+echo ""
+echo "15. Phase 69 (CC 2.1.133-2.1.142) terminalSequence / hooks 契約"
+echo "----------------------------------------"
+
+if bash "$PLUGIN_ROOT/tests/test-terminal-notify.sh" > /dev/null 2>&1; then
+    pass_test "Phase 69 hook terminalSequence / rules / template baseline 契約を満たします"
+else
+    fail_test "Phase 69 terminalSequence contract failed — 'bash tests/test-terminal-notify.sh' で詳細確認"
 fi
 
 echo ""

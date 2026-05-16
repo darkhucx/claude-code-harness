@@ -1,6 +1,7 @@
 package guardrail
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Chachamaru127/claude-code-harness/go/pkg/hookproto"
@@ -690,6 +691,49 @@ func TestR13_WriteNormalFile(t *testing.T) {
 // Rule evaluation order: first match wins
 // ---------------------------------------------------------------------------
 
+func ruleIndex(id string) int {
+	for i, rule := range Rules {
+		if rule.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestR14_RegisteredBeforeOutsideRootAsk(t *testing.T) {
+	r02 := ruleIndex("R02:no-write-protected-paths")
+	r03 := ruleIndex("R03:no-bash-write-protected-paths")
+	r14 := ruleIndex("R14:test-required-for-src-write")
+	r04 := ruleIndex("R04:confirm-write-outside-project")
+
+	if r02 < 0 || r03 < 0 || r14 < 0 || r04 < 0 {
+		t.Fatalf("expected R02/R03/R14/R04 to be registered, got R02=%d R03=%d R14=%d R04=%d", r02, r03, r14, r04)
+	}
+	if !(r02 < r14 && r03 < r14 && r14 < r04) {
+		t.Fatalf("expected R14 after protected write basics and before outside-root ask, got R02=%d R03=%d R14=%d R04=%d", r02, r03, r14, r04)
+	}
+}
+
+func TestR14_TddBypassDoesNotBypassCodexWriteDeny(t *testing.T) {
+	ctx := makeCtx("Write", map[string]interface{}{
+		"file_path": "/project/src/app.go",
+		"content":   "package main\n",
+	})
+	ctx.CodexMode = true
+	ctx.TddEnforceLevel = tddEnforceLevelMax
+	ctx.TddHookEnabled = true
+	ctx.TddBypass = true
+
+	result := EvaluateRules(ctx)
+
+	if result.Decision != hookproto.DecisionDeny {
+		t.Fatalf("expected TDD bypass to continue into Codex write deny, got %s", result.Decision)
+	}
+	if !strings.Contains(result.Reason, "Codex モード中") {
+		t.Fatalf("expected Codex write denial reason, got %q", result.Reason)
+	}
+}
+
 func TestFirstMatchWins(t *testing.T) {
 	// sudo rm -rf should be caught by R01 (sudo) before R05 (rm -rf)
 	ctx := makeCtx("Bash", map[string]interface{}{"command": "sudo rm -rf /"})
@@ -742,5 +786,119 @@ func TestR06_PushForceWithLeaseSpaces(t *testing.T) {
 	result := EvaluateRules(ctx)
 	if result.Decision != hookproto.DecisionDeny {
 		t.Errorf("expected deny for force-with-lease with extra spaces, got %s", result.Decision)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Phase 62.1.5: wrapper bypass coverage for R06/R11/R12
+//
+// CC 2.1.113 hardened deny rules to match `env`/`sudo`/`watch` wrappers.
+// These tests verify that Harness guardrails behave the same for the three
+// commonly-used wrappers, so that `env FOO=1 git push --force` (etc.) cannot
+// be used to slip past force-push / reset-hard / protected-push deny.
+//
+// Note: when wrapped by `sudo`, R01 (sudo block) fires first and the test
+// observes Deny via R01 rather than the target rule. That is still the
+// intended security posture — the deny chain catches the wrapper.
+// ---------------------------------------------------------------------------
+
+// R06 wrapper bypass: env / sudo / watch must not let force-push through.
+func TestR06_WrappedByEnv(t *testing.T) {
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "env GIT_SSL_NO_VERIFY=1 git push --force origin main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for env-wrapped force push, got %s", result.Decision)
+	}
+}
+
+func TestR06_WrappedBySudo(t *testing.T) {
+	// R01 fires first for sudo, but the deny posture is enforced.
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "sudo git push --force origin main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for sudo-wrapped force push, got %s", result.Decision)
+	}
+}
+
+func TestR06_WrappedByWatch(t *testing.T) {
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "watch -n 5 git push --force origin main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for watch-wrapped force push, got %s", result.Decision)
+	}
+}
+
+// R11 wrapper bypass: env / sudo / watch must not let reset --hard main through.
+func TestR11_WrappedByEnv(t *testing.T) {
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "env GIT_DIR=.git git reset --hard main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for env-wrapped reset --hard main, got %s", result.Decision)
+	}
+}
+
+func TestR11_WrappedBySudo(t *testing.T) {
+	// R01 fires first for sudo; the deny posture is enforced.
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "sudo git reset --hard main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for sudo-wrapped reset --hard main, got %s", result.Decision)
+	}
+}
+
+func TestR11_WrappedByWatch(t *testing.T) {
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "watch -n 30 git reset --hard origin/main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for watch-wrapped reset --hard origin/main, got %s", result.Decision)
+	}
+}
+
+// R12 wrapper bypass: env / sudo / watch must not let direct push to main through.
+// Default policy is `ask`; for env / watch tests we set `deny` policy explicitly
+// so that the wrapper bypass coverage is exercised against the strongest
+// configuration. For the sudo case R01 fires first.
+func TestR12_WrappedByEnv(t *testing.T) {
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "env LANG=C git push origin main",
+	})
+	ctx.ProtectedBranchPushPolicy = "deny"
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for env-wrapped push to main with deny policy, got %s", result.Decision)
+	}
+}
+
+func TestR12_WrappedBySudo(t *testing.T) {
+	// R01 fires first for sudo; the deny posture is enforced regardless of policy.
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "sudo git push origin main",
+	})
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for sudo-wrapped push to main, got %s", result.Decision)
+	}
+}
+
+func TestR12_WrappedByWatch(t *testing.T) {
+	ctx := makeCtx("Bash", map[string]interface{}{
+		"command": "watch -n 60 git push origin main",
+	})
+	ctx.ProtectedBranchPushPolicy = "deny"
+	result := EvaluateRules(ctx)
+	if result.Decision != hookproto.DecisionDeny {
+		t.Errorf("expected deny for watch-wrapped push to main with deny policy, got %s", result.Decision)
 	}
 }

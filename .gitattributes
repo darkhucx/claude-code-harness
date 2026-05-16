@@ -5,6 +5,7 @@
 Plans.md                export-ignore
 CONTRIBUTING.md         export-ignore
 AGENTS.md               export-ignore
+CLAUDE.md               export-ignore
 
 # Dev configs (example/schema) — not needed by end users
 .claude-code-harness.config.yaml            export-ignore
@@ -14,6 +15,9 @@ claude-code-harness.config.schema.json      export-ignore
 # CI / dev tooling
 .github/                export-ignore
 .githooks/              export-ignore
+.claude/                export-ignore
+.cursor/                export-ignore
+.private/               export-ignore
 
 # Tests / benchmarks / source
 tests/                  export-ignore
@@ -29,6 +33,7 @@ skills-codex/           export-ignore
 scripts/ci/             export-ignore
 scripts/release/        export-ignore
 scripts/evidence/       export-ignore
+scripts/sandbox-test/   export-ignore
 
 # Dev-heavy docs subtrees. docs/images/ is NOT export-ignored as a whole:
 # it contains tracked README assets (claude-harness-logo-with-text.png and

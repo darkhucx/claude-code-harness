@@ -60,6 +60,8 @@ if [ "$UNREAD_COUNT" -gt 0 ]; then
   INBOX_MESSAGES=$(bash "$SCRIPT_DIR/session-inbox-check.sh" 2>/dev/null | grep -E '^\[' | head -5 || echo "")
 
   if [ -n "$INBOX_MESSAGES" ]; then
+    bash "$SCRIPT_DIR/session-inbox-check.sh" --mark >/dev/null 2>/dev/null || true
+
     # メッセージ内容をエスケープ処理
     ESCAPED_MESSAGES=$(echo "$INBOX_MESSAGES" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n' | sed 's/\\n$//')
 

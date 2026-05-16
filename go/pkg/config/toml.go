@@ -7,6 +7,7 @@
 //	[agent]    — default CC agent
 //	[env]      — environment variables injected into CC sessions
 //	[safety]   — permissions and sandbox settings
+//	[tdd]      — TDD enforcement rollout controls
 //	[telemetry]— harness-internal settings (not reflected to CC files)
 //
 // Unsupported keys (userConfig, channels) are explicitly rejected.
@@ -29,6 +30,7 @@ type Config struct {
 	Agent   AgentConfig       `toml:"agent"`
 	Env     map[string]string `toml:"env"`
 	Safety  SafetyConfig      `toml:"safety"`
+	TDD     TDDConfig         `toml:"tdd"`
 }
 
 // ProjectConfig maps to [project] in harness.toml.
@@ -108,6 +110,29 @@ type SandboxFilesystemConfig struct {
 	AllowRead []string `toml:"allowRead"`
 }
 
+// TDDConfig maps to [tdd] in harness.toml.
+type TDDConfig struct {
+	AdoptTodoListFirst      bool             `toml:"adopt_todo_list_first"`
+	AdoptTriangulation      string           `toml:"adopt_triangulation"`
+	AdoptFakeImplementation bool             `toml:"adopt_fake_implementation"`
+	Enforce                 TDDEnforceConfig `toml:"enforce"`
+}
+
+// TDDEnforceConfig maps to [tdd.enforce] in harness.toml.
+type TDDEnforceConfig struct {
+	Enabled                    bool   `toml:"enabled"`
+	Level                      string `toml:"level"`
+	HookEnabled                bool   `toml:"hook_enabled"`
+	DefaultMaxRedLogAgeMinutes int    `toml:"default_max_red_log_age_minutes"`
+	BypassAuditRequired        bool   `toml:"bypass_audit_required"`
+}
+
+const (
+	TDDEnforceLevelOff     = "off"
+	TDDEnforceLevelCentral = "central"
+	TDDEnforceLevelMax     = "max"
+)
+
 // ---------------------------------------------------------------------------
 // Unsupported key detection
 // ---------------------------------------------------------------------------
@@ -138,6 +163,10 @@ func ParseFile(path string) (*Config, error) {
 	if err := validateKeys(meta); err != nil {
 		return nil, err
 	}
+	applyDefaults(&cfg, meta)
+	if err := validateConfig(&cfg); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
 }
@@ -155,8 +184,36 @@ func ParseBytes(data []byte) (*Config, error) {
 	if err := validateKeys(meta); err != nil {
 		return nil, err
 	}
+	applyDefaults(&cfg, meta)
+	if err := validateConfig(&cfg); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
+}
+
+func applyDefaults(cfg *Config, meta toml.MetaData) {
+	if !meta.IsDefined("tdd", "enforce", "level") {
+		cfg.TDD.Enforce.Level = TDDEnforceLevelOff
+	}
+	if !meta.IsDefined("tdd", "enforce", "default_max_red_log_age_minutes") {
+		cfg.TDD.Enforce.DefaultMaxRedLogAgeMinutes = 60
+	}
+	if !meta.IsDefined("tdd", "enforce", "bypass_audit_required") {
+		cfg.TDD.Enforce.BypassAuditRequired = true
+	}
+}
+
+func validateConfig(cfg *Config) error {
+	switch cfg.TDD.Enforce.Level {
+	case TDDEnforceLevelOff, TDDEnforceLevelCentral, TDDEnforceLevelMax:
+		return nil
+	default:
+		return fmt.Errorf(
+			"harness.toml: unsupported tdd.enforce.level %q (allowed: off, central, max)",
+			cfg.TDD.Enforce.Level,
+		)
+	}
 }
 
 // validateKeys checks that no unsupported top-level keys are present.

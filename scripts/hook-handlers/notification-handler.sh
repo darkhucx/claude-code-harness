@@ -32,6 +32,13 @@ else
 fi
 LOG_FILE="${STATE_DIR}/notification-events.jsonl"
 
+# terminalSequence ヘルパー (CC 2.1.141+, opt-in via HARNESS_TERMINAL_NOTIFY)
+# 詳細: .claude/rules/hooks-2.1.139-plus.md
+if [ -f "${PARENT_DIR}/lib/terminal-notify.sh" ]; then
+  # shellcheck disable=SC1091
+  source "${PARENT_DIR}/lib/terminal-notify.sh"
+fi
+
 # === ユーティリティ関数 ===
 
 ensure_state_dir() {
@@ -161,6 +168,44 @@ fi
 # Elicitation フックで自動スキップ済みだが、通知ログにも残す
 if [ "${NOTIFICATION_TYPE}" = "elicitation_dialog" ] && [ -n "${AGENT_TYPE}" ]; then
   echo "Notification: elicitation_dialog for agent_type=${AGENT_TYPE} (auto-skipped in background)" >&2
+fi
+
+# === terminalSequence 出力 (CC 2.1.141+, opt-in via HARNESS_TERMINAL_NOTIFY) ===
+# permission_prompt / elicitation_dialog のように operator の注意を喚起したい通知では
+# Claude Code が controlling terminal なしでも desktop 通知 / window title / bell を発火できる。
+# 詳細: .claude/rules/hooks-2.1.139-plus.md
+if command -v build_terminal_sequence >/dev/null 2>&1; then
+  _NOTIFY_TITLE=""
+  _NOTIFY_BODY=""
+  case "${NOTIFICATION_TYPE}" in
+    permission_prompt)
+      _NOTIFY_TITLE="Claude Code: permission prompt"
+      _NOTIFY_BODY="${AGENT_TYPE:-main} waiting for approval"
+      ;;
+    elicitation_dialog)
+      _NOTIFY_TITLE="Claude Code: elicitation"
+      _NOTIFY_BODY="${AGENT_TYPE:-main} MCP elicitation"
+      ;;
+    idle_prompt)
+      _NOTIFY_TITLE="Claude Code: idle"
+      _NOTIFY_BODY="session idle"
+      ;;
+    auth_success)
+      _NOTIFY_TITLE="Claude Code: auth success"
+      _NOTIFY_BODY=""
+      ;;
+  esac
+
+  if [ -n "${_NOTIFY_TITLE}" ]; then
+    _TS_SEQ="$(build_terminal_sequence "${_NOTIFY_TITLE}" "${_NOTIFY_BODY}")"
+    if [ -n "${_TS_SEQ}" ]; then
+      _TS_ENCODED="$(encode_terminal_sequence_json "${_TS_SEQ}")"
+      if [ -n "${_TS_ENCODED}" ]; then
+        printf '{"decision":"approve","reason":"notification logged","terminalSequence":%s}\n' "${_TS_ENCODED}"
+        exit 0
+      fi
+    fi
+  fi
 fi
 
 exit 0

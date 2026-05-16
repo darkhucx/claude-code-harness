@@ -1,0 +1,24 @@
+{
+  "schema": "acceptance-context.v1",
+  "user_request": "criteria を 1 つも定義せず Plan Brief を承認したケース",
+  "user_request_hash": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "demo_artifacts": [],
+  "verified_criteria": [],
+  "unverified_caveats": [
+    "Plan Brief 段階で acceptance_criteria を 1 件も定義していなかったため、判定不能"
+  ],
+  "past_issue_patterns": [],
+  "recommendation": "reject",
+  "recommendation_evidence": [
+    "verified_criteria 全 0 件 → 判定不能、安全側 reject (total = 0)"
+  ],
+  "project": "claude-code-harness",
+  "generated_at": "2026-05-09T18:33:00Z",
+  "verified_criteria_items": [],
+  "unverified_caveats_items": [
+    { "text": "Plan Brief 段階で acceptance_criteria を 1 件も定義していなかったため、判定不能" }
+  ],
+  "recommendation_evidence_items": [
+    { "text": "verified_criteria 全 0 件 → 判定不能、安全側 reject (total = 0)" }
+  ]
+}

@@ -21,6 +21,19 @@ missing_count=0
 total_count=0
 skill_error_count=0
 
+is_git_ignored() {
+  local relative_path="$1"
+
+  if ! command -v git >/dev/null 2>&1; then
+    return 1
+  fi
+  if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 1
+  fi
+
+  git -C "$PROJECT_ROOT" check-ignore -q -- "$relative_path"
+}
+
 extract_frontmatter_value() {
   local file="$1"
   local key="$2"
@@ -50,8 +63,12 @@ extract_frontmatter_value() {
 # Check legacy commands for description-en
 echo "📁 Commands (legacy):"
 while IFS= read -r file; do
-  total_count=$((total_count + 1))
   relative_path="${file#$PROJECT_ROOT/}"
+  if is_git_ignored "$relative_path"; then
+    continue
+  fi
+
+  total_count=$((total_count + 1))
   if ! grep -q "^description-en:" "$file"; then
     echo -e "  ${RED}✗${NC} $relative_path (missing description-en)"
     missing_count=$((missing_count + 1))
@@ -78,9 +95,13 @@ check_skill_surface() {
   echo "📁 ${label}:"
 
   while IFS= read -r file; do
+    relative_path="${file#$PROJECT_ROOT/}"
+    if is_git_ignored "$relative_path"; then
+      continue
+    fi
+
     skill_total=$((skill_total + 1))
     total_count=$((total_count + 1))
-    relative_path="${file#$PROJECT_ROOT/}"
 
     local desc desc_en desc_ja desc_zh ok
     desc="$(extract_frontmatter_value "$file" "description" || true)"
@@ -128,7 +149,10 @@ check_skill_surface() {
 check_skill_surface "$PROJECT_ROOT/skills" "skills"
 check_skill_surface "$PROJECT_ROOT/skills-codex" "skills-codex"
 check_skill_surface "$PROJECT_ROOT/codex/.codex/skills" "codex/.codex/skills"
-check_skill_surface "$PROJECT_ROOT/opencode/skills" "opencode/skills"
+# OpenCode skills intentionally keep only the frontmatter fields recognized by
+# OpenCode (`name`, `description`, optional license/compatibility/metadata).
+# They are generated from the bilingual SSOT and validated by
+# scripts/validate-opencode.js instead of this bilingual metadata gate.
 
 missing_count=$((missing_count + skill_error_count))
 

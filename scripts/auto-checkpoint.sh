@@ -11,8 +11,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 
 # ── 環境変数 ───────────────────────────────────────────────────────────────────
-# HARNESS_MEM_CLIENT: harness-mem-client.sh へのパス（テスト差し替え用）
-HARNESS_MEM_CLIENT="${HARNESS_MEM_CLIENT:-${SCRIPT_DIR}/harness-mem-client.sh}"
+# HARNESS_MEM_CLIENT: 旧 shell client (`scripts/harness-mem-client.sh`) へのパス。
+# Phase 60 (v2.20.10) で managed-companion 移行した際に
+# `scripts/harness-mem-client.sh` は claude-harness の配布から除外された。
+# 現行アーキテクチャでは:
+#   - 永続化は memory-bridge.sh 経由 (HTTP daemon API)
+#   - 管理操作は `bin/harness mem ...` (Phase 60 contract)
+# このパスは **テスト fixture 用** にのみ残されている:
+#   - 既定 (env 未指定): 空文字 → API 呼び出しを skip し audit のみ
+#   - HARNESS_MEM_CLIENT=/abs/path → fake client 等で record-checkpoint API を検証
+# 詳細: docs/harness-mem-companion-contract.md
+HARNESS_MEM_CLIENT="${HARNESS_MEM_CLIENT:-}"
 # HARNESS_MEM_DISABLE: 1 のとき API 呼び出しをスキップ（フォールバック検証用）
 HARNESS_MEM_DISABLE="${HARNESS_MEM_DISABLE:-0}"
 # HARNESS_MEM_CLIENT_TIMEOUT_SEC: API 呼び出しタイムアウト秒数

@@ -45,6 +45,7 @@ user-invocable: true
 | `/harness-loop all` | 全未完了タスクをループ実行（default: max 8 サイクル） |
 | `/harness-loop all --max-cycles 3` | 3 サイクルで停止 |
 | `/harness-loop 41.1-41.3 --pacing ci` | タスク範囲を CI pacing で実行 |
+| `/harness-loop all --plan roadmap` | named Plans の `roadmap` を対象にループ実行 |
 | `/harness-loop all --pacing night` | 深夜バッチ（3600s 間隔） |
 | `/harness-loop status` | 進行中ランナーの状態確認 |
 | `/harness-loop stop` | 進行中ランナーの停止要求 |
@@ -55,6 +56,7 @@ user-invocable: true
 |----------|------|----------|
 | `all` | 全未完了タスクを対象 | - |
 | `N-M` | タスク番号範囲指定 | - |
+| `--plan NAME` | `plans/manifest.json` の named plan を使う | active/default |
 | `--max-cycles N` | 最大サイクル数 | `8` |
 | `--pacing <mode>` | wake-up 間隔モード | `worker`（270s） |
 
@@ -90,6 +92,9 @@ user-invocable: true
 
 `Plans.md` と `.claude/state/...` は host project 側に置く。
 helper script だけを `${HARNESS_PLUGIN_ROOT}/scripts/...` から呼ぶ。
+
+複数 Plans.md がある repo では、長時間 run の起動時に `--plan NAME` を明示する。
+runner は開始時に解決した Plans file を cycle 間で保持するため、途中で active plan を切り替えない。
 
 ```
 wake-up

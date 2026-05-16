@@ -7,6 +7,7 @@ package guardrail
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/Chachamaru127/claude-code-harness/go/pkg/hookproto"
 )
@@ -35,6 +36,11 @@ var r09SecretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`secrets?/`),
 }
 
+var (
+	r14SourcePathPattern = regexp.MustCompile(`(?:^|/)(?:app|cmd|go|internal|lib|pkg|src)/(?:.+)\.(?:cs|go|java|js|jsx|kt|php|py|rb|rs|swift|ts|tsx)$`)
+	r14TestPathPattern   = regexp.MustCompile(`(?:^|/)(?:__tests__|test|tests)(?:/|$)|(?:_test\.go|_test\.py|\.spec\.[jt]sx?|\.test\.[jt]sx?)$`)
+)
+
 func protectedPathHookResult(match protectedPathMatch, filePath, operation string) *hookproto.HookResult {
 	switch match.Level {
 	case protectedPathDeny:
@@ -55,6 +61,56 @@ func protectedPathHookResult(match protectedPathMatch, filePath, operation strin
 	default:
 		return nil
 	}
+}
+
+func isTddSourceWriteCandidate(filePath, projectRoot string) bool {
+	if !isUnderProjectRoot(filePath, projectRoot) {
+		return false
+	}
+	normalized := normalizePathForGuardrail(filePath)
+	if r14TestPathPattern.MatchString(normalized) {
+		return false
+	}
+	return r14SourcePathPattern.MatchString(normalized)
+}
+
+func tddBypassHookResult(ctx hookproto.RuleContext, filePath string) *hookproto.HookResult {
+	reason := strings.TrimSpace(ctx.TddBypassReason)
+	message := fmt.Sprintf("TDD enforcement bypass active for %s (HARNESS_TDD_BYPASS=1).", filePath)
+	if reason != "" {
+		message += fmt.Sprintf(" reason=%q", reason)
+	} else if ctx.TddBypassReasonRequired {
+		message += " HARNESS_TDD_BYPASS_REASON is required for audit but was empty."
+	} else {
+		message += " HARNESS_TDD_BYPASS_REASON was empty."
+	}
+	return &hookproto.HookResult{
+		Decision:      hookproto.DecisionApprove,
+		SystemMessage: message,
+	}
+}
+
+func r14TddRequiredLocalTrialResult(ctx hookproto.RuleContext) *hookproto.HookResult {
+	if ctx.TddEnforceLevel != tddEnforceLevelMax || !ctx.TddHookEnabled {
+		return nil
+	}
+	filePath, ok := ctx.Input.ToolInput["file_path"].(string)
+	if !ok {
+		return nil
+	}
+	if !isTddSourceWriteCandidate(filePath, ctx.ProjectRoot) {
+		return nil
+	}
+	if ctx.TddBypass {
+		// TDD bypass only bypasses the future TDD-specific denial path. It must
+		// not short-circuit later non-TDD guardrails such as Codex direct-write
+		// denial.
+		return nil
+	}
+
+	// Phase 68 B1-B3 local trial: R14 is registered but non-blocking until the
+	// dedicated TDD evaluator is added by the follow-up helper implementation.
+	return nil
 }
 
 // Rules is the ordered table of all guard rules.
@@ -110,6 +166,13 @@ var Rules = []GuardRule{
 			}
 			return protectedPathHookResult(match, match.Path, "保護パスへのシェル書き込み")
 		},
+	},
+
+	// R14: TDD required for source writes (local-trial registration only)
+	{
+		ID:          "R14:test-required-for-src-write",
+		ToolPattern: regexp.MustCompile(`^(?:Write|Edit|MultiEdit)$`),
+		Evaluate:    r14TddRequiredLocalTrialResult,
 	},
 
 	// R04: confirm write outside project root

@@ -1,21 +1,6 @@
 ---
 name: harness-sync
 description: "HAR：Plans.md 与实现的进度同步。差异检测、标记更新、回顾。触发：sync-status、进度确认、我现在在哪、做到哪了。--snapshot 用于快照保存。不用于：计划、实现、评审、发布。"
-description-en: "HAR: Sync Plans.md with implementation. Drift detect, marker update, retrospective. Trigger: sync-status, where am I, check progress. --snapshot for snapshots. Do NOT load for: planning, implementation, review, release."
-description-ja: "HAR:Plans.md と実装の進捗同期。差分検出・マーカー更新・レトロスペクティブ。sync-status、進捗確認、今どこ、どこまで終わったで起動。--snapshot でスナップショット保存。プランニング・実装・レビュー・リリースには使わない。"
-description-zh: "HAR：Plans.md 与实现的进度同步。差异检测、标记更新、回顾。触发：sync-status、进度确认、我现在在哪、做到哪了。--snapshot 用于快照保存。不用于：计划、实现、评审、发布。"
-kind: workflow
-purpose: "Reconcile Plans.md, git, and implementation state"
-trigger: "sync-status, where am I, check progress"
-shape: workflow
-role: synchronizer
-pair: harness-plan
-owner: harness-core
-since: "2026-05-05"
-allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob"]
-argument-hint: "[--snapshot|--no-retro]"
-user-invocable: true
-effort: medium
 ---
 
 # Harness Sync
@@ -30,6 +15,7 @@ Plans.md と実装状況を照合し、差分を検出・更新する。
 | `harness-sync` | 進捗同期 + レトロスペクティブ（デフォルト ON） |
 | `harness-sync --no-retro` | 進捗同期のみ（レトロスキップ） |
 | `harness-sync --snapshot` | スナップショット保存（進捗の時点記録） |
+| `harness-sync --plan roadmap` | named Plans の `roadmap` を同期 |
 | "今どこ？" / "進捗確認" | 同上 |
 
 ## オプション
@@ -38,10 +24,12 @@ Plans.md と実装状況を照合し、差分を検出・更新する。
 |----------|------|----------|
 | `--snapshot` | 現在の進捗をスナップショットとして保存 | false |
 | `--no-retro` | レトロスペクティブをスキップ | false（デフォルトで実行） |
+| `--plan NAME` | `plans/manifest.json` の named plan を使う | active/default |
 
 ## Step 0: Plans.md 検証
 
 Plans.md の存在とフォーマットを確認する。問題がある場合は即座に案内して停止する。
+複数 Plans.md がある repo では、対象 plan を `scripts/plan-registry.sh list` または `--plan NAME` で確認してから読む。
 
 | 状態 | 案内 |
 |------|------|

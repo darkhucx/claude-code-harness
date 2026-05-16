@@ -90,7 +90,13 @@
       "deniedDomains": [
         "169.254.169.254",
         "metadata.google.internal",
-        "metadata.azure.com"
+        "metadata.azure.com",
+        "pastebin.com",
+        "transfer.sh",
+        "0x0.st",
+        "paste.ee",
+        "termbin.com",
+        "ix.io"
       ]
     },
     "filesystem": {
@@ -113,5 +119,19 @@
         "docs/**"
       ]
     }
+  },
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "autoMode": {
+    "hard_deny": [
+      "Bash(sudo:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "mcp__codex__*"
+    ]
   }
 }

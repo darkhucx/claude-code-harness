@@ -3,6 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Phase 64.1.1 / 64.1.3: archive-aware Plans.md grep helper を共有 library から source
+# helper 実装と説明は tests/lib/grep_plans_or_archive.sh を参照。
+# tests/test-grep-plans-or-archive.sh が 4 状態 (Plans only / archive only / both / miss) を独立検証する。
+# shellcheck source=lib/grep_plans_or_archive.sh
+. "${ROOT_DIR}/tests/lib/grep_plans_or_archive.sh"
+
 SETTINGS_FILE="${ROOT_DIR}/.claude-plugin/settings.json"
 HOOK_FILES=(
   "${ROOT_DIR}/hooks/hooks.json"
@@ -190,13 +196,16 @@ UPSTREAM_SNAPSHOT_DOC="${ROOT_DIR}/docs/upstream-update-snapshot-2026-04-21.md"
 }
 for referencing_file in \
   "${ROOT_DIR}/CHANGELOG.md" \
-  "${ROOT_DIR}/docs/CLAUDE-feature-table.md" \
-  "${ROOT_DIR}/Plans.md"; do
+  "${ROOT_DIR}/docs/CLAUDE-feature-table.md"; do
   grep -q 'upstream-update-snapshot-2026-04-21' "${referencing_file}" || {
     echo "${referencing_file} is missing the expected upstream-update-snapshot-2026-04-21 reference"
     exit 1
   }
 done
+grep_plans_or_archive 'upstream-update-snapshot-2026-04-21' || {
+  echo "Plans.md (or archive) is missing the expected upstream-update-snapshot-2026-04-21 reference"
+  exit 1
+}
 
 # Phase 52: upstream update skill review contract and mirror drift checks
 for skill_name in "${UPSTREAM_SKILL_NAMES[@]}"; do
@@ -268,13 +277,16 @@ PHASE53_SNAPSHOT_DOC="${ROOT_DIR}/docs/upstream-update-snapshot-2026-04-23.md"
 }
 for referencing_file in \
   "${ROOT_DIR}/CHANGELOG.md" \
-  "${ROOT_DIR}/docs/CLAUDE-feature-table.md" \
-  "${ROOT_DIR}/Plans.md"; do
+  "${ROOT_DIR}/docs/CLAUDE-feature-table.md"; do
   grep -q 'upstream-update-snapshot-2026-04-23' "${referencing_file}" || {
     echo "${referencing_file} is missing the expected upstream-update-snapshot-2026-04-23 reference"
     exit 1
   }
 done
+grep_plans_or_archive 'upstream-update-snapshot-2026-04-23' || {
+  echo "Plans.md (or archive) is missing the expected upstream-update-snapshot-2026-04-23 reference"
+  exit 1
+}
 grep -q '53.1.2 MCP tool hook decision' "${PHASE53_SNAPSHOT_DOC}" || {
   echo "Phase 53 snapshot is missing the 53.1.2 MCP tool hook decision"
   exit 1
@@ -790,13 +802,16 @@ PHASE56_FOLLOWUP_DOC="${ROOT_DIR}/docs/upstream-followups-phase56-2026-04-25.md"
 }
 for referencing_file in \
   "${ROOT_DIR}/CHANGELOG.md" \
-  "${ROOT_DIR}/docs/CLAUDE-feature-table.md" \
-  "${ROOT_DIR}/Plans.md"; do
+  "${ROOT_DIR}/docs/CLAUDE-feature-table.md"; do
   grep -q 'upstream-update-snapshot-2026-04-25' "${referencing_file}" || {
     echo "${referencing_file} is missing the expected upstream-update-snapshot-2026-04-25 reference"
     exit 1
   }
 done
+grep_plans_or_archive 'upstream-update-snapshot-2026-04-25' || {
+  echo "Plans.md (or archive) is missing the expected upstream-update-snapshot-2026-04-25 reference"
+  exit 1
+}
 grep -q 'https://code.claude.com/docs/en/changelog' "${PHASE56_SNAPSHOT_DOC}" || {
   echo "Phase 56 snapshot must include the Claude Code docs changelog URL"
   exit 1
@@ -921,35 +936,35 @@ grep -q 'docs-only' "${ROOT_DIR}/skills/harness-release/SKILL.md" || {
   echo "harness-release must document the docs-only multi-host boundary"
   exit 1
 }
-grep -q '56.2.2 | Codex `0.124.0` stable hooks' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.2 | Codex `0.124.0` stable hooks' || {
   echo "Plans.md must keep the Codex 0.124.0 hooks follow-up task"
   exit 1
 }
-grep -q '56.2.1 | Claude Code `PostToolUse.duration_ms`' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.1 | Claude Code `PostToolUse.duration_ms`' || {
   echo "Plans.md must keep the Claude Code duration/statusline follow-up task"
   exit 1
 }
-grep -q '56.2.3 | `prUrlTemplate` / `--from-pr` multi-host review support' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.3 | `prUrlTemplate` / `--from-pr` multi-host review support' || {
   echo "Plans.md must keep the multi-host review follow-up task"
   exit 1
 }
-grep -q '56.2.4 | Codex `0.124.0` multi-environment app-server と branch/workdir policy' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.4 | Codex `0.124.0` multi-environment app-server と branch/workdir policy' || {
   echo "Plans.md must keep the multi-environment app-server follow-up task"
   exit 1
 }
-grep -q '56.2.1 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.1 .* cc:完了' || {
   echo "Plans.md must mark 56.2.1 as complete"
   exit 1
 }
-grep -q '56.2.2 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.2 .* cc:完了' || {
   echo "Plans.md must mark 56.2.2 as complete"
   exit 1
 }
-grep -q '56.2.3 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.3 .* cc:完了' || {
   echo "Plans.md must mark 56.2.3 as complete"
   exit 1
 }
-grep -q '56.2.4 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '56.2.4 .* cc:完了' || {
   echo "Plans.md must mark 56.2.4 as complete"
   exit 1
 }
@@ -992,13 +1007,16 @@ PHASE58_CODEX_PLUGIN_DOC="${ROOT_DIR}/docs/codex-plugin-workflows-policy.md"
 }
 for referencing_file in \
   "${ROOT_DIR}/CHANGELOG.md" \
-  "${ROOT_DIR}/docs/CLAUDE-feature-table.md" \
-  "${ROOT_DIR}/Plans.md"; do
+  "${ROOT_DIR}/docs/CLAUDE-feature-table.md"; do
   grep -q 'upstream-update-snapshot-2026-05-03' "${referencing_file}" || {
     echo "${referencing_file} is missing the expected upstream-update-snapshot-2026-05-03 reference"
     exit 1
   }
 done
+grep_plans_or_archive 'upstream-update-snapshot-2026-05-03' || {
+  echo "Plans.md (or archive) is missing the expected upstream-update-snapshot-2026-05-03 reference"
+  exit 1
+}
 grep -q 'https://code.claude.com/docs/en/changelog' "${PHASE58_SNAPSHOT_DOC}" || {
   echo "Phase 58 snapshot must include the Claude Code docs changelog URL"
   exit 1
@@ -1147,39 +1165,39 @@ grep -q 'protected path taxonomy' "${ROOT_DIR}/CHANGELOG.md" || {
   echo "CHANGELOG must mention protected path taxonomy follow-up"
   exit 1
 }
-grep -q '58.2.1 | Claude Code `--dangerously-skip-permissions`' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.2.1 | Claude Code `--dangerously-skip-permissions`' || {
   echo "Plans.md must keep the Phase 58 protected-write hardening task"
   exit 1
 }
-grep -q '58.2.2 | Claude Code `PostToolUse` の `hookSpecificOutput.updatedToolOutput`' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.2.2 | Claude Code `PostToolUse` の `hookSpecificOutput.updatedToolOutput`' || {
   echo "Plans.md must keep the Phase 58 updatedToolOutput governance task"
   exit 1
 }
-grep -q '58.3.1 | Codex `0.125.0` / `0.128.0` の permission profiles' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.3.1 | Codex `0.125.0` / `0.128.0` の permission profiles' || {
   echo "Plans.md must keep the Phase 58 Codex permission profile task"
   exit 1
 }
-grep -q '58.3.2 | Codex `0.128.0` の plugin workflows' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.3.2 | Codex `0.128.0` の plugin workflows' || {
   echo "Plans.md must keep the Phase 58 Codex plugin workflow task"
   exit 1
 }
-grep -q '58.1.1 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.1.1 .* cc:完了' || {
   echo "Plans.md must mark 58.1.1 as complete"
   exit 1
 }
-grep -q '58.1.2 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.1.2 .* cc:完了' || {
   echo "Plans.md must mark 58.1.2 as complete"
   exit 1
 }
-grep -q '58.1.3 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.1.3 .* cc:完了' || {
   echo "Plans.md must mark 58.1.3 as complete"
   exit 1
 }
-grep -q '58.2.1 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.2.1 .* cc:完了' || {
   echo "Plans.md must mark 58.2.1 as complete"
   exit 1
 }
-grep -q '58.3.1 .* cc:完了' "${ROOT_DIR}/Plans.md" || {
+grep_plans_or_archive '58.3.1 .* cc:完了' || {
   echo "Plans.md must mark 58.3.1 as complete"
   exit 1
 }
@@ -1199,6 +1217,195 @@ for hooks_file in "${HOOK_FILES[@]}"; do
     )
   ' "${hooks_file}" >/dev/null || {
     echo "${hooks_file} has an mcp_tool hook that is not clearly read-only"
+    exit 1
+  }
+done
+
+# ---------------------------------------------------------------------------
+# Phase 62: Claude Code 2.1.112-2.1.132 後続活用 + Opus 4.7 follow-up
+# ---------------------------------------------------------------------------
+
+# Phase 62.1.1: Worker stall 10 min timeout (CC 2.1.113) — 2-layer defense
+WORKER_AGENT="${ROOT_DIR}/agents/worker.md"
+TEAM_COMPOSITION_DOC="${ROOT_DIR}/docs/team-composition.md"
+grep -Eq '600|10 分|stall' "${WORKER_AGENT}" || {
+  echo "agents/worker.md is missing CC 2.1.113 stall (600s/10min) guidance — Phase 62.1.1"
+  exit 1
+}
+grep -q 'elicitation-handler' "${WORKER_AGENT}" || {
+  echo "agents/worker.md is missing elicitation-handler 2-layer defense — Phase 62.1.1"
+  exit 1
+}
+grep -q 're-spawn' "${TEAM_COMPOSITION_DOC}" || {
+  echo "docs/team-composition.md is missing Worker stall re-spawn rule — Phase 62.1.1"
+  exit 1
+}
+
+# Phase 62.1.2: ENABLE_PROMPT_CACHING_1H opt-in for long-running skills
+LONG_RUNNING_DOC="${ROOT_DIR}/docs/long-running-harness.md"
+BREEZING_SKILL="${ROOT_DIR}/skills/breezing/SKILL.md"
+HARNESS_LOOP_SKILL="${ROOT_DIR}/skills/harness-loop/SKILL.md"
+PROMPT_CACHE_HITS=0
+for cache_file in "${LONG_RUNNING_DOC}" "${BREEZING_SKILL}" "${HARNESS_LOOP_SKILL}"; do
+  if grep -q 'ENABLE_PROMPT_CACHING_1H' "${cache_file}"; then
+    PROMPT_CACHE_HITS=$((PROMPT_CACHE_HITS + 1))
+  fi
+done
+[ "${PROMPT_CACHE_HITS}" -ge 3 ] || {
+  echo "ENABLE_PROMPT_CACHING_1H must be referenced in long-running-harness.md, breezing, and harness-loop — Phase 62.1.2 (got ${PROMPT_CACHE_HITS}/3)"
+  exit 1
+}
+grep -q '子プロセスへの env 継承' "${LONG_RUNNING_DOC}" || {
+  echo "docs/long-running-harness.md is missing codex-companion env inheritance section — Phase 62.1.2"
+  exit 1
+}
+
+# Phase 62.1.3: hooks type=mcp_tool adoption decision doc
+HOOKS_MCP_EVAL_DOC="${ROOT_DIR}/docs/hooks-mcp-tool-evaluation.md"
+[ -f "${HOOKS_MCP_EVAL_DOC}" ] || {
+  echo "${HOOKS_MCP_EVAL_DOC} does not exist — Phase 62.1.3"
+  exit 1
+}
+grep -q 'silent skip' "${HOOKS_MCP_EVAL_DOC}" || {
+  echo "hooks-mcp-tool-evaluation.md must record fallback policy as silent skip — Phase 62.1.3"
+  exit 1
+}
+grep -Eq '保留|採用|却下' "${HOOKS_MCP_EVAL_DOC}" || {
+  echo "hooks-mcp-tool-evaluation.md must record adoption decision (保留/採用/却下) — Phase 62.1.3"
+  exit 1
+}
+
+# Phase 62.1.4: deniedDomains baseline extension (template canonical)
+SECURITY_TEMPLATE_PHASE62="${ROOT_DIR}/templates/claude/settings.security.json.template"
+jq -e '.sandbox.network.deniedDomains | length >= 4' "${SECURITY_TEMPLATE_PHASE62}" >/dev/null || {
+  echo "${SECURITY_TEMPLATE_PHASE62} must have at least 4 deniedDomains baseline entries — Phase 62.1.4"
+  exit 1
+}
+jq -e '.sandbox.network.deniedDomains | (index("pastebin.com") != null) and (index("transfer.sh") != null)' "${SECURITY_TEMPLATE_PHASE62}" >/dev/null || {
+  echo "${SECURITY_TEMPLATE_PHASE62} must include pastebin.com and transfer.sh in deniedDomains — Phase 62.1.4"
+  exit 1
+}
+
+# Phase 62.1.5: wrapper bypass coverage for R06/R11/R12 (CC 2.1.113)
+GUARDRAIL_RULES_TEST_PHASE62="${ROOT_DIR}/go/internal/guardrail/rules_test.go"
+for wrapped in TestR06_WrappedByEnv TestR06_WrappedBySudo TestR06_WrappedByWatch \
+               TestR11_WrappedByEnv TestR11_WrappedBySudo TestR11_WrappedByWatch \
+               TestR12_WrappedByEnv TestR12_WrappedBySudo TestR12_WrappedByWatch; do
+  grep -q "func ${wrapped}" "${GUARDRAIL_RULES_TEST_PHASE62}" || {
+    echo "${GUARDRAIL_RULES_TEST_PHASE62} is missing ${wrapped} — Phase 62.1.5"
+    exit 1
+  }
+done
+
+# Phase 62.2.1-62.2.5: Tier 2 governance / telemetry / policy artifacts
+PHASE62_TIER2_DOCS=(
+  "${ROOT_DIR}/docs/skill-telemetry-policy.md"
+  "${ROOT_DIR}/docs/session-id-env-policy.md"
+  "${ROOT_DIR}/docs/skill-overrides-policy.md"
+)
+for tier2_doc in "${PHASE62_TIER2_DOCS[@]}"; do
+  [ -f "${tier2_doc}" ] || {
+    echo "${tier2_doc} does not exist — Phase 62.2.x"
+    exit 1
+  }
+done
+
+PHASE62_TIER2_TESTS=(
+  "${ROOT_DIR}/tests/test-output-governance.sh"
+  "${ROOT_DIR}/tests/test-agent-permission-mode.sh"
+  "${ROOT_DIR}/tests/test-skill-trigger-telemetry.sh"
+  "${ROOT_DIR}/tests/test-hook-handler-session-id.sh"
+  "${ROOT_DIR}/tests/test-settings-baseline.sh"
+)
+for tier2_test in "${PHASE62_TIER2_TESTS[@]}"; do
+  [ -x "${tier2_test}" ] || {
+    echo "${tier2_test} does not exist or is not executable — Phase 62.2.x"
+    exit 1
+  }
+done
+
+# Phase 62.3.1: snapshot doc referenced from CHANGELOG / Feature Table / Plans
+PHASE62_SNAPSHOT_DOC="${ROOT_DIR}/docs/upstream-update-snapshot-2026-05-07.md"
+[ -f "${PHASE62_SNAPSHOT_DOC}" ] || {
+  echo "${PHASE62_SNAPSHOT_DOC} does not exist — Phase 62.3.1"
+  exit 1
+}
+for referencing_file in \
+  "${ROOT_DIR}/CHANGELOG.md" \
+  "${ROOT_DIR}/docs/CLAUDE-feature-table.md"; do
+  grep -q 'Phase 62' "${referencing_file}" || {
+    echo "${referencing_file} is missing the expected Phase 62 reference"
+    exit 1
+  }
+done
+grep_plans_or_archive 'Phase 62' || {
+  echo "Plans.md (or archive) is missing the expected Phase 62 reference"
+  exit 1
+}
+grep -q 'B: 書いただけ' "${PHASE62_SNAPSHOT_DOC}" || {
+  echo "${PHASE62_SNAPSHOT_DOC} must record B: 書いただけ 0 件 reasoning — Phase 62.3.1"
+  exit 1
+}
+
+# Phase 67.1.1 / 67.1.4: Codex 0.130.0 stable snapshot and upstream integration coverage
+PHASE67_SNAPSHOT_DOC="${ROOT_DIR}/docs/upstream-update-snapshot-2026-05-10.md"
+[ -f "${PHASE67_SNAPSHOT_DOC}" ] || {
+  echo "${PHASE67_SNAPSHOT_DOC} does not exist — Phase 67.1.1"
+  exit 1
+}
+for referencing_file in \
+  "${ROOT_DIR}/CHANGELOG.md" \
+  "${ROOT_DIR}/docs/CLAUDE-feature-table.md"; do
+  grep -q 'Phase 67' "${referencing_file}" || {
+    echo "${referencing_file} is missing the expected Phase 67 reference"
+    exit 1
+  }
+done
+grep_plans_or_archive 'Phase 67' || {
+  echo "Plans.md (or archive) is missing the expected Phase 67 reference"
+  exit 1
+}
+grep_plans_or_archive 'upstream-update-snapshot-2026-05-10' || {
+  echo "Plans.md (or archive) is missing the expected upstream-update-snapshot-2026-05-10 reference"
+  exit 1
+}
+grep -q 'Phase 67 Codex 0.130.0 stable snapshot' "${ROOT_DIR}/docs/CLAUDE-feature-table.md" || {
+  echo "Feature Table must include the Phase 67 Codex 0.130.0 stable snapshot row"
+  exit 1
+}
+grep -q 'Phase 67: Codex 0.130.0 stable upstream snapshot' "${ROOT_DIR}/CHANGELOG.md" || {
+  echo "CHANGELOG must include the Phase 67 Codex 0.130.0 stable upstream snapshot"
+  exit 1
+}
+for required_term in \
+  'rust-v0.130.0' \
+  'prerelease: `false`' \
+  '2026-05-08T23:09:55Z' \
+  'https://github.com/openai/codex/compare/rust-v0.129.0...rust-v0.130.0' \
+  'https://github.com/openai/codex/releases/tag/rust-v0.130.0' \
+  'A: 検証強化' \
+  'C: 自動継承' \
+  'P: Plans 化' \
+  'B: 書いただけ 0 件' \
+  'plugin details show bundled hooks' \
+  'plugin sharing exposes link metadata/discoverability controls' \
+  'codex remote-control' \
+  'Thread pagination APIs' \
+  'aws login' \
+  'view_image' \
+  'live threads from latest config snapshot' \
+  'turn diffs' \
+  'ThreadStore summaries/resume/fork improvements' \
+  'response.processed' \
+  'service_tier' \
+  'Windows sandbox runtime bin cache' \
+  'cargo install --locked' \
+  'OTel trace metadata' \
+  'built-in MCPs' \
+  'CODEX_HOME' \
+  'remove skills list extra roots'; do
+  grep -q "${required_term}" "${PHASE67_SNAPSHOT_DOC}" || {
+    echo "${PHASE67_SNAPSHOT_DOC} is missing ${required_term} — Phase 67.1.1"
     exit 1
   }
 done

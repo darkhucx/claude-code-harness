@@ -2,6 +2,10 @@
 
 `harness-plan create` は、必要なときだけ brief を付ける。brief は Plans.md を置き換えず、実装の前提を短く固定する補助資料。
 
+project spec SSOT は brief より上位の正本として扱う。brief は画面や API など個別タスクの短い前提を固定し、spec SSOT は project 全体の正解条件を固定する。
+
+詳細: `docs/plans/spec-ssot.md`
+
 ## Design Brief
 
 UI を含むタスクでは `design brief` を作る。

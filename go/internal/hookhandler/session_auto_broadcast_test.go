@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -42,6 +43,36 @@ func TestHandleSessionAutoBroadcast_NoFilePath(t *testing.T) {
 	}
 	if result.HookSpecificOutput.AdditionalContext != "" {
 		t.Errorf("expected empty context for no file_path, got %q", result.HookSpecificOutput.AdditionalContext)
+	}
+}
+
+func TestHandleSessionAutoBroadcast_StaleCWDNoBroadcast(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir)
+
+	staleCWD := filepath.Join(tmpDir, "deleted-worktree")
+	input := `{"cwd":` + strconv.Quote(staleCWD) + `,"tool_input":{"file_path":"src/api/users.ts"}}`
+	var out bytes.Buffer
+	if handlerErr := HandleSessionAutoBroadcast(strings.NewReader(input), &out); handlerErr != nil {
+		t.Fatalf("unexpected error: %v", handlerErr)
+	}
+
+	var result postToolOutput
+	if jsonErr := json.Unmarshal(out.Bytes(), &result); jsonErr != nil {
+		t.Fatalf("invalid JSON output: %v", jsonErr)
+	}
+	if result.HookSpecificOutput.AdditionalContext != "" {
+		t.Errorf("expected empty context for stale cwd, got %q", result.HookSpecificOutput.AdditionalContext)
+	}
+	if _, statErr := os.Stat(filepath.Join(".claude", "sessions", "broadcast.md")); !os.IsNotExist(statErr) {
+		t.Fatalf("stale cwd should not create broadcast.md, stat err: %v", statErr)
 	}
 }
 

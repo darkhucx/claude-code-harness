@@ -1,11 +1,47 @@
 #!/bin/bash
 # Claude adapter lifecycle should keep the same continuity chain across
 # SessionStart -> SessionStart additionalContext -> UserPromptSubmit -> Stop.
+#
+# Local-only test: requires the sister repository `../harness-mem` to be cloned
+# alongside this repository. On clean public checkouts (CI environments without
+# the sister repo) this test skips with exit 0, matching the same pattern used
+# by Phase 52's `claude-codex-upstream-update` skill check in
+# `tests/test-claude-upstream-integration.sh`.
+#
+# Override:
+#   HARNESS_MEM_REPO=/abs/path/to/harness-mem  # custom sister repo location
+#   HARNESS_MEM_REQUIRE=1                       # treat missing sister repo as
+#                                               # FAIL instead of skip (CI gate
+#                                               # for environments that DO have
+#                                               # the sister repo cloned)
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HARNESS_ROOT="$(cd "${ROOT_DIR}/../harness-mem" && pwd)"
+
+# Resolve sister repo location:
+#   1. HARNESS_MEM_REPO env var (explicit override)
+#   2. ../harness-mem (default sibling layout)
+SISTER_REPO_RAW="${HARNESS_MEM_REPO:-${ROOT_DIR}/../harness-mem}"
+if [ -d "${SISTER_REPO_RAW}" ]; then
+  HARNESS_ROOT="$(cd "${SISTER_REPO_RAW}" && pwd)"
+else
+  HARNESS_ROOT=""
+fi
+
+if [ -z "${HARNESS_ROOT}" ]; then
+  if [ "${HARNESS_MEM_REQUIRE:-0}" = "1" ]; then
+    echo "FAIL: ${SISTER_REPO_RAW} not found and HARNESS_MEM_REQUIRE=1 is set" >&2
+    exit 1
+  fi
+  echo "skip: ${SISTER_REPO_RAW} not found (clean public checkout; local-only integration test)"
+  echo "  to run this test locally, clone harness-mem alongside claude-code-harness:"
+  echo "    git clone <harness-mem-url> ${ROOT_DIR}/../harness-mem"
+  echo "  or set HARNESS_MEM_REPO=/abs/path/to/harness-mem to use a custom location"
+  echo "  to enforce as CI gate, set HARNESS_MEM_REQUIRE=1"
+  exit 0
+fi
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 

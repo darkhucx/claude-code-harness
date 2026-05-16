@@ -1,13 +1,6 @@
 ---
 name: memory
 description: "管理 SSOT 与记忆，并提供跨工具的记忆检索。decisions.md 与 patterns.md 的守护者。在用户提到 memory、SSOT、decisions.md、patterns.md、合并、迁移、SSOT 升格、同步记忆、保存学习、记忆检索、harness-mem、过往决定或记录此事时使用。不用于：实现工作、评审、临时笔记或会话内日志记录。"
-description-en: "Manage SSOT, memory, and cross-tool memory search. Guardian of decisions.md and patterns.md. Use when user mentions memory, SSOT, decisions.md, patterns.md, merging, migration, SSOT promotion, sync memory, save learnings, memory search, harness-mem, past decisions, or record this. Do NOT load for: implementation work, reviews, ad-hoc notes, or in-session logging."
-description-ja: "SSOTと記憶を管理し、ツール横断の記憶検索を提供。decisions.mdとpatterns.mdの守護者です。Use when user mentions memory, SSOT, decisions.md, patterns.md, merging, migration, SSOT promotion, sync memory, save learnings, memory search, harness-mem, past decisions, or record this. Do NOT load for: implementation work, reviews, ad-hoc notes, or in-session logging."
-description-zh: "管理 SSOT 与记忆，并提供跨工具的记忆检索。decisions.md 与 patterns.md 的守护者。在用户提到 memory、SSOT、decisions.md、patterns.md、合并、迁移、SSOT 升格、同步记忆、保存学习、记忆检索、harness-mem、过往决定或记录此事时使用。不用于：实现工作、评审、临时笔记或会话内日志记录。"
-allowed-tools: ["Read", "Write", "Edit", "Bash", "mcp__harness__harness_mem_*"]
-argument-hint: "[ssot|sync|migrate|search|record]"
-user-invocable: true
-context: fork
 ---
 
 # Memory Skills

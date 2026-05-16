@@ -92,8 +92,13 @@ EOF
 setup_repo() {
   local repo="$1"
   local contract_mode="${2:-valid}"
+  local mirror_mode="${3:-synced}"
   mkdir -p "$repo/scripts"
   mkdir -p "$repo/.claude/state/contracts"
+  mkdir -p "$repo/opencode/skills/example"
+  mkdir -p "$repo/skills/example"
+  mkdir -p "$repo/skills-codex"
+  mkdir -p "$repo/codex/.codex/skills/example"
   git init -q "$repo"
   git -C "$repo" config user.name "Test User"
   git -C "$repo" config user.email "test@example.com"
@@ -136,6 +141,53 @@ EOF
 #!/bin/bash
 local residual_patterns="${HARNESS_RELEASE_RESIDUAL_PATTERNS:-mockData|dummy|fakeData|localhost|TODO|FIXME}"
 EOF
+
+  cat > "$repo/skills/example/SKILL.md" <<'EOF'
+# Example
+
+source skill
+EOF
+
+  cat > "$repo/codex/.codex/skills/example/SKILL.md" <<'EOF'
+# Example
+
+source skill
+EOF
+
+  if [ "$mirror_mode" = "drift" ]; then
+    cat > "$repo/opencode/skills/example/SKILL.md" <<'EOF'
+# Example
+
+stale mirror
+EOF
+  else
+    cat > "$repo/opencode/skills/example/SKILL.md" <<'EOF'
+# Example
+
+generated mirror
+EOF
+  fi
+
+  cat > "$repo/scripts/build-opencode.js" <<'EOF'
+const fs = require('fs');
+fs.mkdirSync('opencode/skills/example', { recursive: true });
+fs.writeFileSync('opencode/skills/example/SKILL.md', '# Example\n\ngenerated mirror\n', 'utf8');
+EOF
+
+  cat > "$repo/scripts/validate-opencode.js" <<'EOF'
+const fs = require('fs');
+process.exit(fs.existsSync('opencode/skills/example/SKILL.md') ? 0 : 1);
+EOF
+
+  cat > "$repo/scripts/sync-skill-mirrors.sh" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+if [ "${1:-}" != "--check" ]; then
+  exit 2
+fi
+exit 0
+EOF
+  chmod +x "$repo/scripts/sync-skill-mirrors.sh"
 
   if [ "$contract_mode" = "invalid" ]; then
     write_contract \
@@ -196,12 +248,15 @@ EOF
 test_skill_mentions_preflight() {
   assert_contains "$PROJECT_ROOT/skills/harness-release/SKILL.md" "HARNESS_RELEASE_HEALTHCHECK_CMD"
   assert_contains "$PROJECT_ROOT/skills/harness-release/SKILL.md" "dry-run"
+  assert_contains "$PROJECT_ROOT/skills/harness-release/SKILL.md" "mirror drift"
   assert_contains "$PROJECT_ROOT/docs/release-preflight.md" "scripts/release-preflight.sh"
 }
 
 test_doc_mentions_overrides() {
   assert_contains "$PROJECT_ROOT/docs/release-preflight.md" "HARNESS_RELEASE_PROJECT_ROOT"
   assert_contains "$PROJECT_ROOT/docs/release-preflight.md" "HARNESS_RELEASE_CI_STATUS_CMD"
+  assert_contains "$PROJECT_ROOT/docs/release-preflight.md" "actions/checkout@v6"
+  assert_contains "$PROJECT_ROOT/docs/release-preflight.md" "actions/setup-go@v6"
 }
 
 test_preflight_pass_and_fail() {
@@ -221,6 +276,10 @@ test_preflight_pass_and_fail() {
   assert_contains "$success_output" "\\[PASS\\] sprint-contract schema"
   assert_contains "$success_output" "\\[PASS\\] runtime residual scan"
   assert_contains "$success_output" "\\[PASS\\] CI status"
+  assert_contains "$success_output" "\\[PASS\\] release mirror build"
+  assert_contains "$success_output" "\\[PASS\\] opencode mirror validation"
+  assert_contains "$success_output" "\\[PASS\\] skill mirror sync check"
+  assert_contains "$success_output" "\\[PASS\\] release mirror drift"
   assert_contains "$success_output" "Summary: "
 
   printf 'BROKEN\n' >> "$repo/scripts/app.sh"
@@ -247,6 +306,22 @@ test_preflight_pass_and_fail() {
 
   assert_contains "$schema_failure_output" "\\[FAIL\\] sprint-contract schema"
   assert_contains "$schema_failure_output" "review.max_iterations must be an integer between 1 and 30"
+}
+
+test_preflight_fails_on_opencode_mirror_drift() {
+  local repo="$TMP_DIR/release-preflight-mirror-drift"
+  setup_repo "$repo" valid drift
+
+  local output="$TMP_DIR/mirror-drift.txt"
+  if HARNESS_RELEASE_PROJECT_ROOT="$repo" \
+    HARNESS_RELEASE_HEALTHCHECK_CMD='true' \
+    HARNESS_RELEASE_CI_STATUS_CMD='true' \
+      "$PROJECT_ROOT/scripts/release-preflight.sh" >"$output" 2>&1; then
+    fail "preflight should fail on generated opencode mirror drift"
+  fi
+
+  assert_contains "$output" "\\[FAIL\\] release mirror drift"
+  assert_contains "$output" "opencode/skills/example/SKILL.md"
 }
 
 test_preflight_checks_plugin_version_sync() {
@@ -343,6 +418,7 @@ test_preflight_warns_when_env_is_managed_elsewhere() {
 test_skill_mentions_preflight
 test_doc_mentions_overrides
 test_preflight_pass_and_fail
+test_preflight_fails_on_opencode_mirror_drift
 test_preflight_checks_plugin_version_sync
 test_preflight_warns_when_env_is_managed_elsewhere
 

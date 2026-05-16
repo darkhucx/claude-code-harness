@@ -26,6 +26,42 @@ fi
 SESSION_ID=""
 CWD=""
 
+looks_like_hook_decision_json() {
+  local value
+  value="$(printf '%s' "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+
+  case "${value}" in
+    \{*) ;;
+    *) return 1 ;;
+  esac
+
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "${value}" \
+      | jq -e 'type == "object" and has("decision") and has("reason")' >/dev/null 2>&1
+    return $?
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "${value}" | python3 -c '
+import json
+import sys
+
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+
+raise SystemExit(0 if isinstance(data, dict) and "decision" in data and "reason" in data else 1)
+' >/dev/null 2>&1
+    return $?
+  fi
+
+  case "${value}" in
+    *'"decision"'*'"reason"'*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 if command -v jq >/dev/null 2>&1; then
   _jq_parsed="$(echo "${INPUT}" | jq -r '[
     (.session_id // ""),
@@ -52,6 +88,11 @@ fi
 
 if [ -z "${CWD}" ]; then
   echo '{"decision":"approve","reason":"WorktreeCreate: no cwd"}'
+  exit 0
+fi
+
+if looks_like_hook_decision_json "${CWD}"; then
+  echo '{"decision":"approve","reason":"WorktreeCreate: invalid cwd"}'
   exit 0
 fi
 

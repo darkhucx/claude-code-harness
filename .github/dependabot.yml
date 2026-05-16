@@ -1,0 +1,49 @@
+version: 2
+
+# Dependabot keeps GitHub Actions pinned to commit SHAs up to date safely.
+# Cooldown delays adoption to avoid the "fresh-tag-then-revoke" attack window
+# (e.g. Trivy-action March 2026 incident, where 75/76 tags were force-pushed
+# before detection within ~7 days).
+
+updates:
+  # GitHub Actions used in workflows and composite actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels:
+      - "ci"
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Composite action lives in its own directory so Dependabot needs an explicit entry.
+  - package-ecosystem: "github-actions"
+    directory: "/.github/actions/setup-go-harness"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    labels:
+      - "ci"
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Go module updates for the harness binary
+  - package-ecosystem: "gomod"
+    directory: "/go"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"

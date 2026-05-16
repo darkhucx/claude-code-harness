@@ -1,11 +1,11 @@
 ---
 name: harness-plan
-description: "HAR：负责任务计划、Plans.md 管理与进度同步。触发：制定计划、添加任务、更新 Plans.md、标记完成、检查进度。不用于：实现、评审、发布。"
-description-en: "HAR: Task planning, Plans.md management, progress sync. Trigger: create a plan, add tasks, update Plans.md, mark complete, check progress. Do NOT load for: implementation, review, release."
-description-ja: "HAR:タスク計画・Plans.md管理・進捗同期を担当。計画作って、計画を作る、タスクを追加、Plans.md更新、完了マーク、進捗確認で起動。実装・レビュー・リリースには使わない。"
+description: "HAR: Research-backed task planning, Plans.md management, progress sync. Trigger: create a plan, add tasks, update Plans.md, mark complete, check progress. Do NOT load for: implementation, review, release."
+description-en: "HAR: Research-backed task planning, Plans.md management, progress sync. Trigger: create a plan, add tasks, update Plans.md, mark complete, check progress. Do NOT load for: implementation, review, release."
+description-ja: "HAR:調査・採点・記憶確認つきのタスク計画、Plans.md管理、進捗同期を担当。計画作って、タスク追加、Plans.md更新、完了マーク、進捗確認で起動。実装・レビュー・リリースには使わない。"
 description-zh: "HAR：负责任务计划、Plans.md 管理与进度同步。触发：制定计划、添加任务、更新 Plans.md、标记完成、检查进度。不用于：实现、评审、发布。"
 kind: workflow
-purpose: "Create and maintain Plans.md task contracts"
+purpose: "Create and maintain evidence-backed Plans.md task contracts"
 trigger: "create a plan, add tasks, update Plans.md, check progress"
 shape: workflow
 role: generator
@@ -37,6 +37,8 @@ Harness の統合プランニングスキル。
 | "今どこ？" / `/harness-plan sync` | `sync` | 実装とPlans.mdを照合・同期 |
 | `/harness-sync` | `sync` | 進捗確認（独立 sync surface と同等） |
 | `/harness-plan create` | `create` | 計画作成 |
+| `/harness-plan list` | `list` | `plans/manifest.json` の named Plans を一覧 |
+| `/harness-plan switch <name>` | `switch` | active plan を `.claude/state/active-plan.json` に保存 |
 
 ## Literal companion commands（CC 2.1.108+）
 
@@ -44,6 +46,38 @@ Harness の統合プランニングスキル。
 - `/undo`: `/rewind` の別名。直前の plan 更新を即座に戻したい時にそのまま使う
 
 ## サブコマンド詳細
+
+### 標準の計画品質契約
+
+See [references/planning-quality.md](${CLAUDE_SKILL_DIR}/references/planning-quality.md)
+
+`harness-plan` は、渡された情報をそのまま Plans.md に落とさない。
+計画作成や大きな task 追加では、最新情報・既存仕様・記憶・複数視点の議論を確認し、
+このプロダクトに取り入れるべき要素だけを task contract に変換する。
+
+**適用する場面**:
+
+- `create` で新しい計画を作る
+- `add` で product behavior / API / 権限 / 課金 / 外部連携 / 配布面に影響する task を足す
+- ユーザーが外部プロダクト、競合、仕様案、改善案、比較材料を渡した
+- 既存仕様や過去判断との衝突リスクがある
+
+**軽く扱ってよい場面**:
+
+- marker 更新だけの `update`
+- status 照合だけの `sync`
+- typo、format、README/CHANGELOG のみ
+- 既存 spec とテストで正解が固定されている狭い変更
+
+**品質フロー**:
+1. 入力情報を分解し、評価対象・採点軸・不確かな事実を明示する
+2. 最新情報を取得する。外部事実は WebSearch / 公式ドキュメント / 一次情報を優先し、重要点は複数ソースでクロスチェックする
+3. 既存仕様・Plans.md・README・docs・CLAUDE.md・関連 skill を確認する
+4. harness-mem / harness-recall / `.claude/agent-memory/` / `.claude/state/` など、利用可能な記憶面を project-scoped で確認する
+5. Task サブエージェントを使い、Product / Architecture / QA / Skeptic など異なる視点で独立レビューする
+6. 中立的な採点レビューを出し、Required / Recommended / Optional / Reject に分類する
+7. `$easy` 形式で、提案内容・理由・どうなるのかを報告する
+8. 採用する案だけを spec SSOT / Plans.md / test task へ落とし込む
 
 ### create — 計画作成
 
@@ -54,12 +88,42 @@ See [references/create.md](${CLAUDE_SKILL_DIR}/references/create.md)
 **フロー**:
 1. 会話コンテキスト確認（直前の議論から抽出 or 新規ヒアリング）
 2. 何を作るか聞く（max 3問）
-3. 技術調査（WebSearch）
-4. 機能リスト抽出
-5. 優先度マトリクス（Required / Recommended / Optional）
-6. TDD 採用判断（テスト設計）
-7. Plans.md 生成（`cc:TODO` マーカー付き）
-8. 次のアクション案内
+3. **計画品質チェック**（最新情報、既存仕様、記憶、複数視点レビュー、採点）
+4. 技術調査（WebSearch）
+5. 機能リスト抽出
+6. **仕様正本チェック**（必要時だけ project spec SSOT を作成/更新）
+7. 優先度マトリクス（Required / Recommended / Optional / Reject）
+8. TDD 採用判断（テスト設計）
+9. Plans.md 生成（`cc:TODO` マーカー付き）
+10. 次のアクション案内
+
+### 仕様正本チェック（デフォルト）
+
+Plans.md は「やるべきこと」の正本、仕様正本は「何が正しいか」の正本として扱う。
+実装がぶれる可能性がある時は、Plans.md 生成前に project spec SSOT を作成または更新する。
+
+優先する保存先:
+
+1. 既存の project spec / architecture / product compass
+2. `docs/spec/00-project-spec.md`
+3. 既存規約がある repo では、その規約に沿った spec path
+
+作成/更新が必要な条件:
+
+- ユーザーに見える振る舞い、API、データモデル、権限、課金、外部連携を決める task
+- 複数の実装方針があり、選び方で product behavior が変わる task
+- 過去または今回の会話で「仕様が曖昧で実装がぶれた」兆候がある task
+- Plans.md には作業内容があるが、project としての正解条件が安定文書にない task
+
+不要な条件:
+
+- typo、format、dependency bump、README/CHANGELOG のみ
+- 動作変更なしの狭い refactor
+- 既存 spec とテストで正解が十分に固定されている修正
+
+参照:
+
+- `docs/plans/spec-ssot.md`
 
 ### create 完了時のセッション起動案内（必須）
 
@@ -171,6 +235,27 @@ Plans.md は正本のまま維持し、GitHub Issue 連携は opt-in の team mo
 
 - `docs/plans/team-mode.md`
 
+### named Plans
+
+複数の Plans.md を使う場合は `plans/manifest.json` を正本にして、名前で選択する。
+
+```bash
+scripts/plan-registry.sh list
+scripts/plan-registry.sh switch roadmap
+scripts/plans-issue-bridge.sh --plan roadmap --format markdown
+node scripts/generate-sprint-contract.js --plan roadmap 9.1.1
+```
+
+運用ルール:
+
+- 1 run では 1 つの named plan だけを使う
+- long-running / CI / issue bridge では active pointer に頼らず `--plan <name>` を渡す
+- manifest path は project root 相対のみ。絶対パス、`..`、repo 外 symlink は拒否される
+
+参照:
+
+- `docs/plans/named-plans.md`
+
 ## Plans.md フォーマット規約
 
 ### フォーマット
@@ -195,18 +280,38 @@ Plans.md は正本のまま維持し、GitHub Issue 連携は opt-in の team mo
 
 **Depends**: タスク間の依存関係。`-`（依存なし）、タスク番号（`N.1`）、カンマ区切り（`N.1, N.2`）、フェーズ依存（`Phase N`）。
 
+### TDD tags
+
+Plans.md の task には、TDD 判定を明示するタグを内容または DoD に書ける。
+
+| タグ | 意味 | `tdd_required` 推論 |
+|------|------|--------------------|
+| `[tdd:required]` | この task は先に失敗テストを書く必要がある | `true` |
+| `[tdd:skip:<reason>]` | この task は理由つきで TDD を省略する | `false`, `skip_tdd_reason=<reason>` |
+
+`<reason>` は空にしない。
+例: `[tdd:skip:docs-only]`、`[tdd:skip:no-test-framework-detected]`。
+
+タグがない場合の `tdd_required` は次の順で推論する。
+
+1. Plans.md tag: `[tdd:required]` / `[tdd:skip:<reason>]`
+2. files: `src/`, `app/`, `cmd/`, `lib/`, `pkg/`, `internal/`, `go/` など source 実装を含むなら required
+3. scaffolder 推論: docs-only や test framework なしなら skip reason を付けて not required
+
 ### optional briefs / manifest
 
 `harness-plan create` は、必要なときだけ brief を付ける。
 
+- project spec SSOT は project 全体の正解条件を固定する文書で、必要時だけ作る
 - UI を含むタスクでは `design brief`
 - API を含むタスクでは `contract brief`
-- brief は「何を作るか」を短く固定する補助資料で、Plans.md を置き換えない
+- brief は「何を作るか」を短く固定する補助資料で、Plans.md や spec SSOT を置き換えない
 - skill frontmatter の一覧は `scripts/generate-skill-manifest.sh` で machine-readable JSON にできる
 
 参照:
 
 - `docs/plans/briefs-manifest.md`
+- `docs/plans/spec-ssot.md`
 
 ### マーカー一覧
 

@@ -11,7 +11,7 @@
 # This script keeps skills as real directories in:
 #   - .agents/skills/
 #   - codex/.codex/skills/
-#   - opencode/skills/
+#   - opencode/skills/ (generated through build-opencode.js)
 #
 # Source of truth:
 #   - skills/ for shared skills
@@ -63,6 +63,106 @@ sync_skill() {
   echo "synced $mirror_root/$skill"
 }
 
+normalize_opencode_skill_name() {
+  printf '%s\n' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'
+}
+
+is_opencode_skipped_skill() {
+  case "$1" in
+    test-*|x-*|allow1|cc-update-review|claude-codex-upstream-update|harness-release-internal|zz-review-empty|zz-review-escape)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+extract_markdown_body() {
+  local file="$1"
+
+  awk '
+    NR == 1 && $0 == "---" { in_frontmatter = 1; next }
+    in_frontmatter && $0 == "---" { in_frontmatter = 0; body_started = 1; next }
+    in_frontmatter { next }
+    { print }
+  ' "$file"
+}
+
+check_opencode_mirror() {
+  if ! node "$PLUGIN_ROOT/scripts/validate-opencode.js"; then
+    return 1
+  fi
+
+  local expected_file actual_file
+  expected_file="$(mktemp)"
+  actual_file="$(mktemp)"
+  trap 'rm -f "$expected_file" "$actual_file"' RETURN
+
+  for entry in "$SHARED_SSOT_DIR"/*/; do
+    [ -d "$entry" ] || continue
+    local skill
+    skill="$(basename "$entry")"
+    [ -f "$entry/SKILL.md" ] || continue
+    if is_opencode_skipped_skill "$skill"; then
+      continue
+    fi
+    normalize_opencode_skill_name "$skill" >> "$expected_file"
+  done
+
+  find "$PLUGIN_ROOT/opencode/skills" -mindepth 2 -maxdepth 2 -type f -name "SKILL.md" \
+    | while IFS= read -r skill_file; do
+        basename "$(dirname "$skill_file")"
+      done > "$actual_file"
+
+  sort -u -o "$expected_file" "$expected_file"
+  sort -u -o "$actual_file" "$actual_file"
+
+  if ! diff -u "$expected_file" "$actual_file"; then
+    echo "drift opencode/skills generated skill set" >&2
+    return 1
+  fi
+
+  for entry in "$SHARED_SSOT_DIR"/*/; do
+    [ -d "$entry" ] || continue
+    local skill opencode_skill source_dir mirror_dir source_body mirror_body
+    skill="$(basename "$entry")"
+    [ -f "$entry/SKILL.md" ] || continue
+    if is_opencode_skipped_skill "$skill"; then
+      continue
+    fi
+
+    opencode_skill="$(normalize_opencode_skill_name "$skill")"
+    mirror_dir="$PLUGIN_ROOT/opencode/skills/$opencode_skill"
+    source_dir="$SHARED_SSOT_DIR/$skill"
+    [ -d "$mirror_dir" ] || {
+      echo "missing opencode skill mirror: $opencode_skill" >&2
+      return 1
+    }
+
+    source_body="$(mktemp)"
+    mirror_body="$(mktemp)"
+    trap 'rm -f "$expected_file" "$actual_file" "$source_body" "$mirror_body"' RETURN
+    extract_markdown_body "$source_dir/SKILL.md" > "$source_body"
+    extract_markdown_body "$mirror_dir/SKILL.md" > "$mirror_body"
+    if ! diff -u "$source_body" "$mirror_body" >/dev/null; then
+      echo "drift opencode/skills/$opencode_skill/SKILL.md body" >&2
+      diff -u "$source_body" "$mirror_body" >&2 || true
+      return 1
+    fi
+
+    if ! diff -qr --exclude='.DS_Store' --exclude='SKILL.md' --exclude='CLAUDE.md' --exclude='node_modules' --exclude='coverage' --exclude='.claude' --exclude='IMPLEMENTATION_*' --exclude='TASK_*' "$source_dir" "$mirror_dir" >/dev/null; then
+      echo "drift opencode/skills/$opencode_skill support files" >&2
+      diff -qr --exclude='.DS_Store' --exclude='SKILL.md' --exclude='CLAUDE.md' --exclude='node_modules' --exclude='coverage' --exclude='.claude' --exclude='IMPLEMENTATION_*' --exclude='TASK_*' "$source_dir" "$mirror_dir" >&2 || true
+      return 1
+    fi
+  done
+
+  echo "ok opencode/skills"
+}
+
 check_skill() {
   local skill="$1"
   local mirror_root="$2"
@@ -104,6 +204,17 @@ FAILURES=0
 for mirror_root in "${MIRROR_ROOTS[@]}"; do
   mirror_dir="$PLUGIN_ROOT/$mirror_root"
   [ -d "$mirror_dir" ] || continue
+
+  if [ "$mirror_root" = "opencode/skills" ]; then
+    if [ "$MODE" = "sync" ]; then
+      node "$PLUGIN_ROOT/scripts/build-opencode.js"
+    else
+      if ! check_opencode_mirror; then
+        FAILURES=$((FAILURES + 1))
+      fi
+    fi
+    continue
+  fi
 
   # Discovery: sync every skill directory that exists in both SSOT and mirror
   for entry in "$mirror_dir"/*/; do

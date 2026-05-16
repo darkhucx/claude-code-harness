@@ -2,11 +2,12 @@
 /**
  * build-opencode.js
  *
- * Harness コマンドを opencode.ai 互換形式に変換するスクリプト
+ * Harness コマンドとスキルを opencode.ai 互換形式に変換するスクリプト
  *
  * 変換内容:
  * - commands/ → opencode/commands/ にコピー
- * - frontmatter から description-en を削除
+ * - command frontmatter から description-en/name を削除
+ * - skill frontmatter を OpenCode の認識フィールドへ正規化
  * - CLAUDE.md → AGENTS.md として生成
  *
  * 使用方法:
@@ -78,6 +79,15 @@ function stringifyFrontmatter(frontmatter) {
   return `---\n${lines.join('\n')}\n---\n`;
 }
 
+function normalizeSkillName(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
 /**
  * Harness コマンドを opencode 形式に変換
  */
@@ -101,6 +111,28 @@ function convertCommand(content) {
   }
 
   return stringifyFrontmatter(frontmatter) + body;
+}
+
+function convertSkill(content, skillName) {
+  const { frontmatter, body } = parseFrontmatter(content);
+  const normalizedName = normalizeSkillName(skillName);
+
+  if (!frontmatter) {
+    return content;
+  }
+
+  const opencodeFrontmatter = {
+    name: normalizedName,
+    description: frontmatter.description || `${normalizedName} skill`,
+  };
+
+  for (const field of ['license', 'compatibility', 'metadata']) {
+    if (frontmatter[field]) {
+      opencodeFrontmatter[field] = frontmatter[field];
+    }
+  }
+
+  return stringifyFrontmatter(opencodeFrontmatter) + body;
 }
 
 /**
@@ -310,6 +342,7 @@ function copySkills() {
     'allow1',
     'cc-update-review',
     'claude-codex-upstream-update',
+    'harness-release-internal',
     'zz-review-empty',
     'zz-review-escape',
   ]);
@@ -318,12 +351,18 @@ function copySkills() {
     if (!entry.isDirectory()) continue;
 
     const skillName = entry.name;
+    const opencodeSkillName = normalizeSkillName(skillName);
     const srcSkillDir = path.join(SKILLS_DIR, skillName);
-    const destSkillDir = path.join(OPENCODE_SKILLS_DIR, skillName);
+    const destSkillDir = path.join(OPENCODE_SKILLS_DIR, opencodeSkillName);
 
     // テスト用・開発用・opencode 非対応スキルはスキップ
     if (skillName.startsWith('test-') || skillName.startsWith('x-') || skipSkills.has(skillName)) {
       console.log(`  ⏭ ${skillName}/ (dev/test/unsupported skill, skipped)`);
+      continue;
+    }
+
+    if (!opencodeSkillName) {
+      console.log(`  ⏭ ${skillName}/ (invalid opencode skill name, skipped)`);
       continue;
     }
 
@@ -335,9 +374,16 @@ function copySkills() {
     }
 
     // スキルディレクトリを再帰的にコピー
-    copyDirectoryRecursive(srcSkillDir, destSkillDir);
+    copyDirectoryRecursive(srcSkillDir, destSkillDir, {
+      convertSkillMd: true,
+      skillName: opencodeSkillName,
+    });
     copiedCount++;
-    console.log(`  ✓ ${skillName}/`);
+    if (skillName === opencodeSkillName) {
+      console.log(`  ✓ ${skillName}/`);
+    } else {
+      console.log(`  ✓ ${skillName}/ → ${opencodeSkillName}/`);
+    }
   }
 
   return copiedCount;
@@ -346,7 +392,7 @@ function copySkills() {
 /**
  * ディレクトリを再帰的にコピー
  */
-function copyDirectoryRecursive(src, dest) {
+function copyDirectoryRecursive(src, dest, options = {}) {
   ensureDir(dest);
 
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -380,9 +426,14 @@ function copyDirectoryRecursive(src, dest) {
     }
 
     if (entry.isDirectory()) {
-      copyDirectoryRecursive(srcPath, destPath);
+      copyDirectoryRecursive(srcPath, destPath, options);
     } else {
-      fs.copyFileSync(srcPath, destPath);
+      if (options.convertSkillMd && entry.name === 'SKILL.md') {
+        const content = fs.readFileSync(srcPath, 'utf8');
+        fs.writeFileSync(destPath, convertSkill(content, options.skillName));
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
     }
   }
 }

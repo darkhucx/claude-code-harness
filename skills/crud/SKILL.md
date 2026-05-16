@@ -1,6 +1,6 @@
 ---
 name: crud
-description: "Explicit helper for CRUD scaffolding and API endpoint generation. Do NOT load for: UI components, form design, database schema discussion, or general implementation."
+description: "快速自动生成 CRUD。样板代码交给 AI。在用户提到 CRUD、实体生成或想创建 API 端点时使用。不用于：UI 组件创建、表单设计、数据库 schema 讨论。"
 description-en: "Explicit helper for CRUD scaffolding and API endpoint generation. Do NOT load for: UI components, form design, database schema discussion, or general implementation."
 description-ja: "CRUD足場作成とAPIエンドポイント生成の明示補助スキル。UIコンポーネント、フォーム設計、データベース設計相談、通常の実装には使わない。"
 description-zh: "快速自动生成 CRUD。样板代码交给 AI。在用户提到 CRUD、实体生成或想创建 API 端点时使用。不用于：UI 组件创建、表单设计、数据库 schema 讨论。"

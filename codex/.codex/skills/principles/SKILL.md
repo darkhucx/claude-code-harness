@@ -1,6 +1,6 @@
 ---
 name: principles
-description: "Explicit helper for development principles, safety guidelines, and diff-aware editing rules. Do NOT load for: implementation, review, workflow coaching, or VibeCoder onboarding."
+description: "提供开发原则、指南与 VibeCoder 指引。在用户提到 principles、guidelines、safety 或 diff-aware editing 时使用。不用于实际实现 — 请改用 impl 技能。"
 description-en: "Explicit helper for development principles, safety guidelines, and diff-aware editing rules. Do NOT load for: implementation, review, workflow coaching, or VibeCoder onboarding."
 description-ja: "開発原則、安全ガイドライン、差分尊重の編集ルールを確認する明示補助スキル。実装、レビュー、進め方相談、VibeCoder案内には使わない。"
 description-zh: "提供开发原则、指南与 VibeCoder 指引。在用户提到 principles、guidelines、safety 或 diff-aware editing 时使用。不用于实际实现 — 请改用 impl 技能。"

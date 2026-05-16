@@ -1,6 +1,6 @@
 ---
 name: harness-loop
-description: "HAR: Codex-native long-running loop runner. Uses a real background runner that executes one ready batch per cycle through Breezing by default, with status/stop controls. Trigger: long-running, loop, autonomous, background, Codex. Do NOT load for: one-shot implementation, normal review, release."
+description: "HAR：Codex 原生的长时间循环执行器。后台 runner 默认通过 Breezing 每周期执行一个 ready batch，可用 status/stop 监控。触发：长时间、loop、循环、autonomous、background、Codex。不用于：单次实现、常规评审、发布。"
 description-en: "HAR: Codex-native long-running loop runner. Uses a real background runner that executes one ready batch per cycle through Breezing by default, with status/stop controls. Trigger: long-running, loop, autonomous, background, Codex. Do NOT load for: one-shot implementation, normal review, release."
 description-ja: "HAR: Codex 専用の長時間ループ実行。実際のバックグラウンドランナーが ready batch を Breezing で進め、status / stop で監視できる。長時間、loop、ループ、autonomous、background、Codex で起動。"
 description-zh: "HAR：Codex 原生的长时间循环执行器。后台 runner 默认通过 Breezing 每周期执行一个 ready batch，可用 status/stop 监控。触发：长时间、loop、循环、autonomous、background、Codex。不用于：单次实现、常规评审、发布。"

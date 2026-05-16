@@ -1,6 +1,6 @@
 ---
 name: session
-description: "Unified session management window. Handles initialization, memory, state all-in-one. Explicit /session invocation only — sub-skills handle auto-delegation. Use when managing Claude Code sessions, /session command. Do NOT load for: app user sessions, login state, authentication features."
+description: "会话管理总入口。初始化、记忆、状态一站式处理。仅限显式 /session 调用 — 下层技能负责自动委派。在管理 Claude Code 会话、/session 命令时使用。不用于：应用用户会话、登录状态、身份认证功能。"
 description-en: "Unified session management window. Handles initialization, memory, state all-in-one. Explicit /session invocation only — sub-skills handle auto-delegation. Use when managing Claude Code sessions, /session command. Do NOT load for: app user sessions, login state, authentication features."
 description-ja: "セッション管理の総合窓口。初期化・記憶・状態を一手に引き受けます。明示的 /session 呼び出し専用 — 下位スキルが自動委譲されるため自動発動は不要。Use when managing Claude Code sessions, /session command. Do NOT load for: app user sessions, login state, authentication features."
 description-zh: "会话管理总入口。初始化、记忆、状态一站式处理。仅限显式 /session 调用 — 下层技能负责自动委派。在管理 Claude Code 会话、/session 命令时使用。不用于：应用用户会话、登录状态、身份认证功能。"

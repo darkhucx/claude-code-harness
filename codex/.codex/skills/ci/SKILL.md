@@ -1,6 +1,6 @@
 ---
 name: ci
-description: "CI red? Call us. Pipeline fire brigade deploys. Use when user mentions CI failures, build errors, test failures, or pipeline issues. Do NOT load for: local builds, standard implementation work, reviews, or setup."
+description: "CI 红了？呼叫我们。流水线消防队即刻出动。在用户提到 CI 失败、构建错误、测试失败或流水线问题时使用。不用于：本地构建、常规实现工作、评审或初始化。"
 description-en: "CI red? Call us. Pipeline fire brigade deploys. Use when user mentions CI failures, build errors, test failures, or pipeline issues. Do NOT load for: local builds, standard implementation work, reviews, or setup."
 description-ja: "CIが赤くなったら呼んで。パイプライン消防隊、出動します。Use when user mentions CI failures, build errors, test failures, or pipeline issues. Do NOT load for: local builds, standard implementation work, reviews, or setup."
 description-zh: "CI 红了？呼叫我们。流水线消防队即刻出动。在用户提到 CI 失败、构建错误、测试失败或流水线问题时使用。不用于：本地构建、常规实现工作、评审或初始化。"

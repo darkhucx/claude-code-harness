@@ -1,6 +1,6 @@
 ---
 name: harness-sync
-description: "HAR: Sync Plans.md with implementation. Drift detect, marker update, retrospective. Trigger: sync-status, where am I, check progress. --snapshot for snapshots. Do NOT load for: planning, implementation, review, release."
+description: "HAR：Plans.md 与实现的进度同步。差异检测、标记更新、回顾。触发：sync-status、进度确认、我现在在哪、做到哪了。--snapshot 用于快照保存。不用于：计划、实现、评审、发布。"
 description-en: "HAR: Sync Plans.md with implementation. Drift detect, marker update, retrospective. Trigger: sync-status, where am I, check progress. --snapshot for snapshots. Do NOT load for: planning, implementation, review, release."
 description-ja: "HAR:Plans.md と実装の進捗同期。差分検出・マーカー更新・レトロスペクティブ。sync-status、進捗確認、今どこ、どこまで終わったで起動。--snapshot でスナップショット保存。プランニング・実装・レビュー・リリースには使わない。"
 description-zh: "HAR：Plans.md 与实现的进度同步。差异检测、标记更新、回顾。触发：sync-status、进度确认、我现在在哪、做到哪了。--snapshot 用于快照保存。不用于：计划、实现、评审、发布。"

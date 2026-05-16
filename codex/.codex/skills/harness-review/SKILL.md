@@ -1,6 +1,6 @@
 ---
 name: harness-review
-description: "HAR: Multi-angle code, plan, scope review. Security/quality check. Trigger: review, code review, plan review, scope analysis. Do NOT load for: implementation, new features, bugfix, setup, release."
+description: "HAR：从代码、计划、范围多角度评审。安全/质量检查。触发：评审、代码评审、计划评审、范围分析。不用于：实现、新功能、bug 修复、初始化、发布。"
 description-en: "HAR: Multi-angle code, plan, scope review. Security/quality check. Trigger: review, code review, plan review, scope analysis. Do NOT load for: implementation, new features, bugfix, setup, release."
 description-ja: "HAR:コード・プラン・スコープを多角的にレビュー。セキュリティ・品質チェック。レビュー、コードレビュー、プランレビュー、スコープ分析で起動。実装・新機能・バグ修正・セットアップ・リリースには使わない。"
 description-zh: "HAR：从代码、计划、范围多角度评审。安全/质量检查。触发：评审、代码评审、计划评审、范围分析。不用于：实现、新功能、bug 修复、初始化、发布。"

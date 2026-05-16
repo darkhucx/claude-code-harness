@@ -382,7 +382,7 @@ bash scripts/check-residue.sh        # 应该 0 件（migration residue）
 
 ## 8. 升级路径速查
 
-如果你刚 clone fork 想用最新：
+### 8.1 准备本地副本
 
 ```bash
 git clone git@github.com:darkhucx/claude-code-harness.git
@@ -391,13 +391,45 @@ python3 -m pip install --user --break-system-packages pyyaml
 ./tests/validate-plugin.sh   # 期望 95/95 PASS
 ```
 
-切换语言（fork opt-in）：
+### 8.2 注册插件到 Claude Code（从 fork marketplace）
+
+> ⚠️ **前置：确保 darkhucx fork 在 GitHub 上的默认分支是 `main`**
+> Claude Code 克隆 marketplace 时只拿默认分支。如果默认分支还是旧的（例如 `feat/gemini-engine`），插件会安装旧版本：
+> ```bash
+> gh repo edit darkhucx/claude-code-harness --default-branch main
+> # 或 gh repo view darkhucx/claude-code-harness --json defaultBranchRef 先确认
+> ```
+
+如果之前装过 upstream `Chachamaru127` 版本，先换 marketplace 源：
+
+```bash
+# 1. 移除旧 marketplace（避免命名冲突——upstream 与 fork 的 marketplace 内部名相同）
+claude plugin marketplace remove claude-code-harness-marketplace
+
+# 2. 添加 fork 作为 marketplace
+claude plugin marketplace add darkhucx/claude-code-harness
+
+# 3. 装到 user scope（全局可用）
+claude plugin install claude-code-harness@claude-code-harness-marketplace --scope user
+
+# 4. 验证版本
+claude plugin list | grep -A3 'claude-code-harness@'
+# 期望：Version: 4.10.0, Scope: user, Status: enabled
+```
+
+如果版本不是 v4.10.0，运行 `claude plugin marketplace update claude-code-harness-marketplace` 强制刷新 cache（cache 路径 `~/.claude/plugins/marketplaces/...`），然后 `claude plugin update claude-code-harness@claude-code-harness-marketplace`。
+
+**重启 Claude Code** 才会加载新版本。
+
+### 8.3 切换语言（fork opt-in）
 
 ```bash
 ./scripts/i18n/set-locale.sh zh   # 描述字段切中文
 ./scripts/i18n/set-locale.sh ja   # 切日文
 ./scripts/i18n/set-locale.sh en   # 切英文（恢复 upstream 默认）
 ```
+
+> 注意：运行 `set-locale.sh zh` / `ja` 后 `bash scripts/ci/check-consistency.sh` 的 i18n gate 会失败（"description must equal description-en"）。这是 fork 故意的分歧，**仅 `set-locale.sh en` 状态下才能让 consistency check 全合格**。
 
 ---
 
